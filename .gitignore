@@ -7,7 +7,7 @@ __pycache__/
 .mypy_cache/
 
 # Project-specific ignores
-output/      # Ignore all output files (they can be regenerated)
+output/
 
 # Environment and dependencies
 .env
