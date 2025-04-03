@@ -69,18 +69,14 @@ class Summarizer:
             
             summary = response.content[0].text
             
-            # Save the summary to a file
             if output_file is None:
-                # If no output file is specified, determine one based on context
                 if os.path.exists(transcript_text):
-                    # If transcript_text is actually a file path
                     output_dir = os.path.dirname(transcript_text)
                     base_filename = os.path.splitext(os.path.basename(transcript_text))[0]
                     if base_filename.endswith("_transcript"):
-                        base_filename = base_filename[:-10]  # Remove "_transcript" suffix
+                        base_filename = base_filename[:-10] 
                     summary_file = os.path.join(output_dir, f"{base_filename}_summary.md")
                 else:
-                    # Default location
                     output_dir = os.getenv("OUTPUT_DIRECTORY", "./summaries")
                     Path(output_dir).mkdir(parents=True, exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -88,7 +84,6 @@ class Summarizer:
             else:
                 summary_file = output_file
             
-            # Ensure parent directory exists
             os.makedirs(os.path.dirname(summary_file), exist_ok=True)
             
             with open(summary_file, "w") as f:

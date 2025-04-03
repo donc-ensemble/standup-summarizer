@@ -8,16 +8,16 @@ class Transcriber:
     Class for transcribing audio to text using Whisper
     """
     
-    def __init__(self, model_name="base"):
+    def __init__(self):
         """
         Initialize the transcriber with the specified Whisper model.
         
         Args:
             model_name (str): The Whisper model to use - tiny, base, small, medium, or large
         """
-        self.model_name = model_name
-        print(f"Loading Whisper model: {model_name}")
-        self.model = whisper.load_model(model_name)
+        self.model_name = "base"
+        print(f"Loading Whisper model: {self.model_name}")
+        self.model = whisper.load_model(self.model_name)
         print("Model loaded successfully")
         
     def transcribe_file(self, audio_file_path, output_file=None):
@@ -37,23 +37,20 @@ class Transcriber:
         print(f"Transcribing file: {audio_file_path}")
         result = self.model.transcribe(audio_file_path)
         
-        # Save the transcript to a file
         if output_file is None:
             output_dir = os.path.dirname(audio_file_path)
             if not output_dir:
                 output_dir = os.getenv("OUTPUT_DIRECTORY", "./transcripts")
                 Path(output_dir).mkdir(parents=True, exist_ok=True)
                 
-            # Get the base filename without extension
             base_filename = os.path.splitext(os.path.basename(audio_file_path))[0]
             if base_filename.startswith("recording_"):
-                base_filename = base_filename[10:]  # Remove "recording_" prefix
+                base_filename = base_filename[10:] 
                 
             transcript_file = os.path.join(output_dir, f"{base_filename}_transcript.txt")
         else:
             transcript_file = output_file
             
-        # Ensure parent directory exists
         os.makedirs(os.path.dirname(transcript_file), exist_ok=True)
         
         with open(transcript_file, "w") as f:
@@ -77,9 +74,7 @@ class Transcriber:
         print("Transcribing audio array")
         result = self.model.transcribe(audio_array, sr=sample_rate)
         
-        # Save the transcript to a file if specified
         if output_file:
-            # Ensure parent directory exists
             os.makedirs(os.path.dirname(output_file), exist_ok=True)
             
             with open(output_file, "w") as f:

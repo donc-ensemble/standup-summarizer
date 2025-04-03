@@ -40,10 +40,8 @@ class Recorder:
             
         try:
             if duration is None:
-                # For manual stopping, we need a different approach
                 print("Recording... Press Ctrl+C to stop.")
                 
-                # Use a list to collect chunks of audio
                 audio_chunks = []
                 
                 def callback(indata, frames, time, status):
@@ -51,18 +49,15 @@ class Recorder:
                         print(f"Error: {status}")
                     audio_chunks.append(indata.copy())
                 
-                # Start the stream
                 with sd.InputStream(samplerate=self.sample_rate, channels=self.channels, 
                                 callback=callback, dtype='float32'):
                     try:
-                        # Wait indefinitely until KeyboardInterrupt
                         import time
                         while True:
                             time.sleep(0.1)
                     except KeyboardInterrupt:
                         print("\nRecording stopped by user")
                 
-                # Concatenate all audio chunks
                 if audio_chunks:
                     audio_data = np.concatenate(audio_chunks, axis=0)
                 else:
@@ -70,7 +65,6 @@ class Recorder:
                     return None, None
             else:
                 print(f"Recording for {duration} seconds...")
-                # Record for the specified duration
                 audio_data = sd.rec(
                     int(duration * self.sample_rate),
                     samplerate=self.sample_rate,
@@ -78,13 +72,11 @@ class Recorder:
                     dtype='float32'
                 )
                 
-                # Wait for the recording to finish
                 sd.wait()
                 
             print("Recording finished")
             
             if save:
-                # Save the recording to a file
                 if output_dir is None:
                     output_dir = os.getenv("OUTPUT_DIRECTORY", "./output")
                 Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -95,7 +87,6 @@ class Recorder:
                 
                 file_path = os.path.join(output_dir, filename)
                 
-                # Convert to int16 for WAV file
                 audio_int16 = (audio_data * 32767).astype(np.int16)
                 wav.write(file_path, self.sample_rate, audio_int16)
                 
