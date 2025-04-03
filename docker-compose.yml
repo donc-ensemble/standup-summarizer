@@ -8,7 +8,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - WHISPER_MODEL=base
       - OUTPUT_DIRECTORY=/app/output
-    # For audio recording, you'll need to give Docker access to your audio device
-    # Uncommenting this will allow Docker to access your host's audio device (Linux only)
-    # devices:
-    #  - /dev/snd:/dev/snd
+      - SLACK_CHANNEL_ID=${SLACK_CHANNEL_ID}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+    ports:
+      - "8000:8000"
