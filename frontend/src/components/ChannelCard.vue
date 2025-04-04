@@ -1,20 +1,20 @@
 <template>
-  <div class="project-card" @click="navigateToProject">
-    <div class="project-content">
-      <h3 class="project-name">{{ project.name }}</h3>
-      <p class="project-description">{{ project.description }}</p>
-      <p class="project-created">Created at: {{ formatDate(project.createdAt) }}</p>
+  <div class="channel-card" @click="navigateToChannel">
+    <div class="channel-content">
+      <h3 class="channel-label">{{ channel.label }}</h3>
+      <p class="channel-id">ID: {{ channel.channelId }}</p>
+      <p class="channel-created">Created at: {{ formatDate(channel.createdAt) }}</p>
     </div>
-    <div class="project-actions">
+    <div class="channel-actions">
       <button class="action-btn" @click.stop="showDeleteConfirm = true">...</button>
     </div>
     
     <!-- Delete confirmation modal -->
     <div v-if="showDeleteConfirm" class="delete-modal" @click.stop>
       <div class="delete-modal-content">
-        <p>Are you sure you want to delete this project?</p>
+        <p>Are you sure you want to delete this channel?</p>
         <div class="delete-modal-actions">
-          <button @click="deleteProject" class="delete-btn">Delete</button>
+          <button @click="deleteChannel" class="delete-btn">Delete</button>
           <button @click="showDeleteConfirm = false" class="cancel-btn">Cancel</button>
         </div>
       </div>
@@ -24,9 +24,9 @@
 
 <script>
 export default {
-  name: 'ProjectCard',
+  name: 'ChannelCard',
   props: {
-    project: {
+    channel: {
       type: Object,
       required: true
     }
@@ -45,60 +45,59 @@ export default {
         day: 'numeric' 
       });
     },
-    deleteProject() {
-      this.$emit('delete', this.project.id);
+    deleteChannel() {
+      this.$emit('delete', this.channel.id);
       this.showDeleteConfirm = false;
     },
-    navigateToProject() {
-      this.$router.push(`/projects/${this.project.id}`);
+    navigateToChannel() {
+      this.$router.push(`/channels/${this.channel.id}`);
     }
   }
 };
 </script>
 
 <style scoped>
-.project-card {
+.channel-card {
   position: relative;
-  display: flex;
-  justify-content: space-between;
   background-color: white;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   padding: 1.5rem;
-  margin-bottom: 1rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   cursor: pointer;
 }
 
-.project-card:hover {
+.channel-card:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.project-content {
+.channel-content {
   flex-grow: 1;
 }
 
-.project-name {
+.channel-label {
   color: #182825;
   margin-top: 0;
   margin-bottom: 0.5rem;
   font-size: 1.2rem;
 }
 
-.project-description {
+.channel-id {
   color: #555;
   margin-bottom: 1rem;
+  font-family: monospace;
 }
 
-.project-created {
+.channel-created {
   color: #777;
   font-size: 0.9rem;
   margin-bottom: 0;
 }
 
-.project-actions {
-  display: flex;
-  align-items: flex-start;
+.channel-actions {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
 }
 
 .action-btn {

@@ -76,8 +76,8 @@ export default {
 
 <style scoped>
 .projects-page {
-  max-width: 1200px;
-  margin: 0 auto;
+  /* max-width: 1200px; */
+  /* margin: 0 auto; */
   padding: 2rem;
 }
 
@@ -86,6 +86,11 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+}
+
+.projects-list {
+  display: flex;
+  gap: 1rem;
 }
 
 h1 {

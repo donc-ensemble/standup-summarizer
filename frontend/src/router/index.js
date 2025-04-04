@@ -1,30 +1,26 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import ProjectsView from '@/views/ProjectsView.vue';
-// import ChannelsView from '@/views/ChannelsView.vue';
-// import SummariesView from '@/views/SummariesView.vue';
-// import HomeView from '@/views/HomeView.vue';
+import ProjectDetailView from '@/views/ProjectDetailView.vue';
+import ChannelDetailView from '@/views/ChannelDetailView.vue';
 
 const routes = [
-  // {
-  //   path: '/',
-  //   name: 'Home',
-  //   component: HomeView
-  // },
   {
     path: '/projects',
     name: 'Projects',
     component: ProjectsView
   },
-  // {
-  //   path: '/channels',
-  //   name: 'Channels',
-  //   component: ChannelsView
-  // },
-  // {
-  //   path: '/summaries',
-  //   name: 'Summaries',
-  //   component: SummariesView
-  // }
+  {
+    path: '/projects/:id',
+    name: 'ProjectDetail',
+    component: ProjectDetailView,
+    props: true
+  },
+  {
+    path: '/channels/:id',
+    name: 'ChannelDetail',
+    component: ChannelDetailView,
+    props: true
+  }
 ];
 
 const router = createRouter({

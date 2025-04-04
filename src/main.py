@@ -6,11 +6,34 @@ from datetime import datetime
 import shutil
 import sys
 from pathlib import Path
+from contextlib import asynccontextmanager
+from db.base import Base
+from db.session import engine, get_db 
+from typing import AsyncIterator
+
+from api.routes.projects import router as projects_router
+from api.routes.channels import router as channels_router
+from api.routes.summaries import router as summaries_router
 
 sys.path.append(str(Path(__file__).parent))
 from services.transcribe_summarizer import transcribe_summarize_api
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create database tables
+    print("Creating database tables...")
+    Base.metadata.create_all(bind=engine)
+    print(f"Tables created: {list(Base.metadata.tables.keys())}")
+    
+    yield  # App runs here
+    
+    # Cleanup (if needed)
+    print("Shutting down...")
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(projects_router, prefix="/projects", tags=["projects"])
+app.include_router(channels_router, prefix="/channels", tags=["channels"])
+app.include_router(summaries_router, prefix="/summaries", tags=["summaries"])
 
 @app.get("/")
 def read_root():

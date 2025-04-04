@@ -1,33 +1,39 @@
-# services:
-#   standup-summarizer:
-#     build: .
-#     volumes:
-#       - ./:/app
-#       - ./output:/app/output
-#     environment:
-#       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-#       - WHISPER_MODEL=base
-#       - OUTPUT_DIRECTORY=/app/output
-#       - SLACK_CHANNEL_ID=${SLACK_CHANNEL_ID}
-#       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
-#     ports:
-#       - "8000:8000"
-
-
 services:
-  standup-summarizer:
-    build: .
-    volumes:
-      - ./:/app
-      - ./output:/app/output
+  db:
+    image: postgres:13
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WHISPER_MODEL=base
-      - OUTPUT_DIRECTORY=/app/output
-      - SLACK_CHANNEL_ID=${SLACK_CHANNEL_ID}
-      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: summarizer_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src
+      - ./output:/app/output
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/summarizer_db
+      OUTPUT_DIRECTORY: /app/output
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      SLACK_CHANNEL_ID: ${SLACK_CHANNEL_ID}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     image: node:18-alpine
@@ -37,7 +43,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - VUE_APP_API_URL=http://localhost:8000
+      VUE_APP_API_URL: http://backend:8000
+      VUE_APP_WS_URL: ws://backend:8000
     command: sh -c "npm install && npm run serve"
     depends_on:
-      - standup-summarizer
+      - backend
+
+volumes:
+  postgres_data:
