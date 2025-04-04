@@ -37,3 +37,5 @@ Thumbs.db
 local_settings.py
 config.ini
 secrets.ini
+
+frontend/node_modules/
