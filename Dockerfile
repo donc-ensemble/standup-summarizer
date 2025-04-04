@@ -19,4 +19,4 @@ RUN mkdir -p audio transcripts summaries output
 
 EXPOSE 8000
 
-CMD ["python", "src/main.py"]
+CMD ["python", "backend/main.py"]
