@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./src:/app/src
+      - ./backend:/app/backend
       - ./output:/app/output
     ports:
       - "8000:8000"
