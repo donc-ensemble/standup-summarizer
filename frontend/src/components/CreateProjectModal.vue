@@ -11,6 +11,7 @@
             v-model="projectName" 
             required 
             placeholder="Enter project name"
+            :disabled="isSubmitting"
           >
         </div>
         <div class="form-group">
@@ -19,11 +20,31 @@
             id="projectDescription" 
             v-model="projectDescription" 
             placeholder="Enter project description"
+            :disabled="isSubmitting"
           ></textarea>
         </div>
+        
+        <div v-if="error" class="error-message">
+          {{ error }}
+        </div>
+        
         <div class="form-actions">
-          <button type="button" class="cancel-btn" @click="cancel">Cancel</button>
-          <button type="submit" class="submit-btn" :disabled="!projectName">Create</button>
+          <button 
+            type="button" 
+            class="cancel-btn" 
+            @click="cancel"
+            :disabled="isSubmitting"
+          >
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            class="submit-btn" 
+            :disabled="!projectName || isSubmitting"
+          >
+            <span v-if="isSubmitting">Creating...</span>
+            <span v-else>Create</span>
+          </button>
         </div>
       </form>
     </div>
@@ -42,21 +63,31 @@ export default {
   data() {
     return {
       projectName: '',
-      projectDescription: ''
+      projectDescription: '',
+      isSubmitting: false,
+      error: null
     };
   },
   methods: {
-    submitProject() {
+    async submitProject() {
       if (!this.projectName) return;
       
-      const newProject = {
-        name: this.projectName,
-        description: this.projectDescription,
-        createdAt: new Date().toISOString()
-      };
+      this.isSubmitting = true;
+      this.error = null;
       
-      this.$emit('create', newProject);
-      this.resetForm();
+      try {
+        this.$emit('create', {
+          name: this.projectName,
+          description: this.projectDescription
+        });
+        this.resetForm();
+        this.$emit('close');
+      } catch (err) {
+        console.error('Error:', err);
+        this.error = 'Failed to prepare project data';
+      } finally {
+        this.isSubmitting = false;
+      }
     },
     cancel() {
       this.resetForm();
@@ -65,12 +96,32 @@ export default {
     resetForm() {
       this.projectName = '';
       this.projectDescription = '';
+      this.error = null;
+    }
+  },
+  watch: {
+    show(newVal) {
+      if (!newVal) {
+        this.resetForm();
+      }
     }
   }
 };
 </script>
 
 <style scoped>
+
+.error-message {
+  color: #ff4d4d;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.submit-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;

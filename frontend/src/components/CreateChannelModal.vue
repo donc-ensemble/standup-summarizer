@@ -68,7 +68,6 @@ export default {
     return {
       channels: [
         { channelId: '', label: '' },
-        { channelId: '', label: '' }
       ]
     };
   },
