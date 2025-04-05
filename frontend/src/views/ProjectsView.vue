@@ -10,7 +10,7 @@
         v-for="project in projects" 
         :key="project.id" 
         :project="project"
-        @delete="deleteProject"
+        @delete="handleDeleteProject"
       />
       <div v-if="projects.length === 0" class="no-projects">
         No projects yet. Create your first project!
@@ -20,7 +20,7 @@
     <CreateProjectModal 
       :show="showCreateModal" 
       @close="showCreateModal = false"
-      @create="createProject"
+      @create="handleCreateProject"
     />
   </div>
 </template>
@@ -28,6 +28,7 @@
 <script>
 import ProjectCard from '@/components/ProjectCard.vue';
 import CreateProjectModal from '@/components/CreateProjectModal.vue';
+import api from '@/services/api';
 
 export default {
   name: 'ProjectsView',
@@ -38,41 +39,44 @@ export default {
   data() {
     return {
       showCreateModal: false,
-      projects: [
-        // Sample data, would be replaced with API calls
-        {
-          id: '1',
-          name: 'Team Alpha Standups',
-          description: 'Daily standup recordings for the Alpha team',
-          createdAt: '2025-03-10T09:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'Project Beta Planning',
-          description: 'Planning sessions for the Beta project launch',
-          createdAt: '2025-03-15T14:30:00Z'
-        }
-      ]
+      projects: []
     };
   },
+  async created() {
+    await this.fetchProjects();
+  },
   methods: {
-    createProject(project) {
-      // In a real application, make an API call here
-      const newProject = {
-        ...project,
-        id: Date.now().toString() // Temporary ID generation
-      };
-      
-      this.projects.unshift(newProject);
-      this.showCreateModal = false;
+    async fetchProjects() {
+      try {
+        const response = await api.getProjects();
+        this.projects = response.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
     },
-    deleteProject(projectId) {
-      // In a real application, make an API call here
-      this.projects = this.projects.filter(project => project.id !== projectId);
+    async handleCreateProject(projectData) {
+      try {
+        const response = await api.createProject(projectData);
+        this.projects.unshift(response.data);
+        this.showCreateModal = false;
+      } catch (error) {
+        console.error('Error creating project:', error);
+      }
+    },
+    async handleDeleteProject(projectId) {
+      try {
+        console.log("🚀 ~ handleDeleteProject ~ projectId:", projectId)
+        
+        await api.deleteProject(projectId);
+        this.projects = this.projects.filter(project => project.id !== projectId);
+      } catch (error) {
+        console.error('Error deleting project:', error);
+      }
     }
   }
 };
 </script>
+
 
 <style scoped>
 .projects-page {

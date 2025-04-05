@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
 from db.base import Base
-from db.session import engine, get_db 
-from typing import AsyncIterator
+from db.session import engine
+
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.projects import router as projects_router
 from api.routes.channels import router as channels_router
@@ -18,18 +19,28 @@ from api.routes.summaries import router as summaries_router
 sys.path.append(str(Path(__file__).parent))
 from services.transcribe_summarizer import transcribe_summarize_api
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create database tables
     print("Creating database tables...")
     Base.metadata.create_all(bind=engine)
     print(f"Tables created: {list(Base.metadata.tables.keys())}")
     
-    yield  # App runs here
+    yield
     
-    # Cleanup (if needed)
     print("Shutting down...")
+    
 app = FastAPI(lifespan=lifespan)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 app.include_router(projects_router, prefix="/projects", tags=["projects"])
 app.include_router(channels_router, prefix="/channels", tags=["channels"])

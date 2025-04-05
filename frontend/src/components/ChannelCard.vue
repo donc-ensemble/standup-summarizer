@@ -3,7 +3,7 @@
     <div class="channel-content">
       <h3 class="channel-label">{{ channel.label }}</h3>
       <p class="channel-id">ID: {{ channel.channelId }}</p>
-      <p class="channel-created">Created at: {{ formatDate(channel.createdAt) }}</p>
+      <p class="channel-created">Created at: {{ formatDate(channel.created_at) }}</p>
     </div>
     <div class="channel-actions">
       <button class="action-btn" @click.stop="showDeleteConfirm = true">...</button>

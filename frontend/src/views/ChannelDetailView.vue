@@ -6,13 +6,13 @@
       <button class="back-btn" @click="goBack">← Back to Channel</button>
       <h1>{{ channel.label }}</h1>
       <p class="channel-id">ID: {{ channel.channelId }}</p>
-      <p class="channel-created">Created at: {{ formatDate(channel.createdAt) }}</p>
+      <p class="channel-created">Created at: {{ formatDate(channel.created_at) }}</p>
     </div>
     
     <div class="summaries-list">
       <div v-for="summary in summaries" :key="summary.id" class="summary-card">
         <h3 class="summary-title">{{ summary.audioFileName }}</h3>
-        <p class="summary-date">Created at: {{ formatDate(summary.createdAt) }}</p>
+        <p class="summary-date">Created at: {{ formatDate(summary.created_at) }}</p>
         <div class="summary-content">
           <p>{{ summary.summary }}</p>
         </div>
@@ -34,7 +34,7 @@ export default {
         id: this.$route.params.id,
         label: '',
         channelId: '',
-        createdAt: ''
+        created_at: ''
       },
       summaries: []
     };
@@ -58,14 +58,14 @@ export default {
           projectId: '1',
           label: 'General',
           channelId: 'general',
-          createdAt: '2025-03-10T09:00:00Z'
+          created_at: '2025-03-10T09:00:00Z'
         },
         {
           id: '2',
           projectId: '1',
           label: 'Development',
           channelId: 'dev',
-          createdAt: '2025-03-15T14:30:00Z'
+          created_at: '2025-03-15T14:30:00Z'
         }
       ];
       
@@ -84,7 +84,7 @@ export default {
           channelLabel: this.channel.label,
           audioFileName: 'standup_20250315.mp3',
           summary: "This is a sample summary of the audio recording. The team discussed the progress on the current sprint, with John completing the login page and Sarah working on the API integration. The main blockers were the authentication service delays.",
-          createdAt: '2025-03-15T14:30:00Z'
+          created_at: '2025-03-15T14:30:00Z'
         },
         {
           id: '2',
@@ -92,7 +92,7 @@ export default {
           channelLabel: this.channel.label,
           audioFileName: 'planning_20250320.mp3',
           summary: "This is another sample summary. The team planned the next sprint, deciding to focus on the user dashboard and notification system. Estimated completion time is 2 weeks with all hands on deck.",
-          createdAt: '2025-03-20T10:15:00Z'
+          created_at: '2025-03-20T10:15:00Z'
         }
       ];
     },

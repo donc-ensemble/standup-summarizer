@@ -3,18 +3,17 @@
     <div class="project-content">
       <h3 class="project-name">{{ project.name }}</h3>
       <p class="project-description">{{ project.description }}</p>
-      <p class="project-created">Created at: {{ formatDate(project.createdAt) }}</p>
+      <p class="project-created">Created at: {{ formatDate(project.created_at) }}</p>
     </div>
     <div class="project-actions">
       <button class="action-btn" @click.stop="showDeleteConfirm = true">...</button>
     </div>
     
-    <!-- Delete confirmation modal -->
     <div v-if="showDeleteConfirm" class="delete-modal" @click.stop>
       <div class="delete-modal-content">
         <p>Are you sure you want to delete this project?</p>
         <div class="delete-modal-actions">
-          <button @click="deleteProject" class="delete-btn">Delete</button>
+          <button @click="confirmDelete" class="delete-btn">Delete</button>
           <button @click="showDeleteConfirm = false" class="cancel-btn">Cancel</button>
         </div>
       </div>
@@ -45,7 +44,7 @@ export default {
         day: 'numeric' 
       });
     },
-    deleteProject() {
+    confirmDelete() {
       this.$emit('delete', this.project.id);
       this.showDeleteConfirm = false;
     },
