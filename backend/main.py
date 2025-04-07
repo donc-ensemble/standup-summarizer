@@ -86,11 +86,9 @@ async def upload_audio(background_tasks: BackgroundTasks, audio_file: UploadFile
     with open(original_file_path, "wb") as buffer:
         shutil.copyfileobj(audio_file.file, buffer)
     
-    # Convert to WAV if needed
     if file_extension in ['.mp4', '.m4a']:
         wav_file_path = os.path.join(session_dir, f"{job_id}_recording.wav")
         try:
-            # Using ffmpeg to extract audio and convert to WAV
             subprocess.run(
                 ["ffmpeg", "-i", original_file_path, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2", wav_file_path],
                 check=True
