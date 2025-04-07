@@ -83,12 +83,6 @@ class Summarizer:
                     summary_file = os.path.join(output_dir, f"summary_{timestamp}.md")
             else:
                 summary_file = output_file
-            
-            # os.makedirs(os.path.dirname(summary_file), exist_ok=True)
-            
-            # with open(summary_file, "w") as f:
-            #     f.write(summary)
-            
             print(f"Summary saved to: {summary_file}")
             return summary
             

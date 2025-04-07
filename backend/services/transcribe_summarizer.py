@@ -1,5 +1,5 @@
 import os
-from datetime import datetime 
+from db.models.channel import Channel
 from db.session import get_db
 from db.models.summary import Summary
 from .transcriber import Transcriber
@@ -63,48 +63,45 @@ def send_to_slack(summary, channel_id=None):
     except Exception as e:
         print(f"Unexpected error sending to Slack: {e}")
         return False
-
-def transcribe_summarize_api(audio_file_path: str, channel_id: int, original_filename: str, job_id):
+      
+      
+def transcribe_summarize_api(audio_file_path: str, channel_id: int, original_filename: str, job_id: str):
     db = next(get_db())
-    
     try:
-        # Generate unique job ID
-        job_id = f"job_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        channel = db.query(Channel).get(channel_id)
+        if not channel:
+            raise ValueError(f"Channel {channel_id} not found")
         
-        # Transcribe
+        print(f"Starting processing for {original_filename}...")
+        db.query(Summary).filter(Summary.job_id == job_id).update({
+            "status": "processing"
+        })
+        db.commit()
+        
         transcriber = Transcriber()
         transcription = transcriber.transcribe_file(audio_file_path)
         
-        # Summarize
         summarizer = Summarizer()
         summary_text = summarizer.summarize(transcription["text"])
         
-        # Save to database
-        db_summary = Summary(
-            channel_id=channel_id,
-            job_id=job_id,
-            original_filename=original_filename,
-            transcript=transcription["text"],
-            summary=summary_text,
-            slack_notification_sent=send_to_slack(summary_text)
-        )
-        
-        db.add(db_summary)
+        db.query(Summary).filter(Summary.job_id == job_id).update({
+            "status": "completed",
+            "transcript": transcription["text"],
+            "summary": summary_text,
+            "slack_notification_sent": send_to_slack(summary_text)
+        })
         db.commit()
-        db.refresh(db_summary)
         
-        return {
-            "status": "success",
-            "job_id": job_id,
-            "summary_id": db_summary.id
-        }
-        
-    except Exception:
+    except Exception as e:
         db.rollback()
+        db.query(Summary).filter(Summary.job_id == job_id).update({
+            "status": "failed",
+            "error_message": str(e)
+        })
+        db.commit()
         raise
     finally:
         db.close()
-        # Clean up temp file
         temp_dir = os.path.dirname(audio_file_path)
         base_name = os.path.basename(audio_file_path).split('_')[0]
         for filename in os.listdir(temp_dir):

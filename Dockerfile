@@ -17,8 +17,6 @@ RUN pip install alembic
 
 COPY . .
 
-RUN mkdir -p audio transcripts summaries output
-
 EXPOSE 8000
 
 CMD ["python", "backend/main.py"]

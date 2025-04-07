@@ -8,6 +8,7 @@ import shutil
 import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
+from db.models.summary import Summary
 from db.base import Base
 from db.session import engine, get_db
 
@@ -100,19 +101,34 @@ async def upload_audio(background_tasks: BackgroundTasks, channel_id: int, audio
             raise HTTPException(status_code=500, detail=f"Failed to convert audio: {str(e)}")
     else:
         audio_file_path = temp_file_path
+        
+    db = next(get_db())
+    try:
+        db_summary = Summary(
+            job_id=job_id,
+            channel_id=channel_id,
+            original_filename=original_filename,
+            status="pending" 
+        )
+        db.add(db_summary)
+        db.commit()
+        db.refresh(db_summary)
+    finally:
+        db.close()
     
     background_tasks.add_task(
         transcribe_summarize_api,
         audio_file_path=audio_file_path,
         channel_id=channel_id,
-        original_filename=original_filename
+        original_filename=original_filename,
+        job_id=job_id
     )
     
     return JSONResponse(
         status_code=202,
         content={
             "job_id": job_id,
-            "status": "processing",
+            "status": "pending",
             "message": "Audio file uploaded successfully. Processing started."
         }
     )
@@ -132,7 +148,7 @@ async def get_job_status(job_id: str):
     try:
         from db.models.summary import Summary
         summary = db.query(Summary).filter(Summary.job_id == job_id).first()
-        
+        print(summary, "test")
         if not summary:
             return JSONResponse(
                 status_code=404,
@@ -143,10 +159,7 @@ async def get_job_status(job_id: str):
                 }
             )
         
-        # More detailed status checking
-        if summary.error_message:
-            status = "failed"
-        elif summary.transcript and summary.summary:
+        if summary.transcript and summary.summary:
             status = "completed"
         elif summary.transcript:
             status = "transcribed"  # Optional intermediate state
@@ -165,9 +178,6 @@ async def get_job_status(job_id: str):
             "available_data": available_data
         }
         
-        if summary.error_message:
-            response["error"] = summary.error_message
-            
         return JSONResponse(content=response)
         
     except Exception as e:
