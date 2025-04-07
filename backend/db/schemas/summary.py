@@ -3,16 +3,18 @@ from datetime import datetime
 
 class SummaryBase(BaseModel):
     channel_id: int
-    audio_file_path: str
-    transcript: str | None = None
-    summary: str | None = None
+    original_filename: str
+    transcript: str
+    summary: str
 
 class SummaryCreate(SummaryBase):
-    pass
+    job_id: str
 
 class SummaryResponse(SummaryBase):
     id: int
+    job_id: str
     created_at: datetime
+    slack_notification_sent: bool
 
     class Config:
         from_attributes = True

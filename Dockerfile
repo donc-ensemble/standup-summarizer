@@ -13,6 +13,8 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN pip install alembic
+
 COPY . .
 
 RUN mkdir -p audio transcripts summaries output
