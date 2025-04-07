@@ -76,7 +76,7 @@ def transcribe_summarize_api(
             {"status": "processing"}
         )
         db.commit()
-
+        print(f"✅ Updated database status to 'completed' for job {job_id}")
         transcriber = Transcriber()
         transcription = transcriber.transcribe_file(audio_file_path)
 

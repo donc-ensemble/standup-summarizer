@@ -7,11 +7,18 @@
 
 <script>
 import Navbar from '@/components/Navbar.vue';
+import { onUnmounted } from 'vue'
+import { eventBus } from './eventBus'
 
 export default {
   name: 'App',
   components: {
     Navbar
+  },
+  setup() {
+    onUnmounted(() => {
+      eventBus.closeAllConnections()
+    })
   }
 };
 </script>

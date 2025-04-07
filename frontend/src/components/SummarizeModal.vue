@@ -149,7 +149,7 @@ export default {
           formData: formData,
           channelId: this.selectedChannelId
         });
-        
+        this.isLoading = false
         // Close the modal after successful submission
         this.$emit('close');
         

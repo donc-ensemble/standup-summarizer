@@ -46,6 +46,7 @@ import ChannelCard from '@/components/ChannelCard.vue';
 import CreateChannelModal from '@/components/CreateChannelModal.vue';
 import SummarizeModal from '@/components/SummarizeModal.vue';
 import api from '@/services/api';
+import { useJobToast } from '@/composables/useToast'
 
 export default {
   name: 'ProjectDetailView',
@@ -53,6 +54,10 @@ export default {
     ChannelCard,
     CreateChannelModal,
     SummarizeModal
+  },
+  setup(){
+    const { monitorJob } = useJobToast()
+    return { monitorJob }
   },
   data() {
     return {
@@ -77,7 +82,11 @@ export default {
     async fetchProject() {
       try {
         const response = await api.getProject(this.$route.params.id)
-        this.project = response.data
+        
+        this.project = {
+          ...response.data,
+          channels: [...response.data.channels].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        }
       } catch (error) {
         console.error('Error fetching project:', error);
         
@@ -87,43 +96,18 @@ export default {
       try {
         console.log('Received data:', data);
         
-        // Check if we have a proper data object with channelId
         if (!data || !data.channelId || !data.formData) {
           console.error('Invalid data received:', data);
-          return; // Don't proceed if data is invalid
+          return;
         }
         
         console.log('Uploading with channel ID:', data.channelId);
         const response = await api.uploadAudio(data.formData, data.channelId);
-        this.monitorJobStatus(response.data.job_id);
+        
+        const res = this.monitorJob(response.data.job_id)
       } catch (error) {
         console.error('Upload failed:', error);
       }
-    },
-    async monitorJobStatus(jobId) {
-      const checkStatus = async () => {
-        try {
-          const response = await api.getJobStatus(jobId);
-          
-          if (response.data.status === 'completed') {
-            // Refresh project data
-            await this.fetchProject();
-            return;
-          }
-          
-          if (response.data.status === 'failed') {
-            console.error('Job failed:', response.data.error);
-            return;
-          }
-          
-          // If still processing, check again after delay
-          setTimeout(checkStatus, 2000);
-        } catch (error) {
-          console.error('Error checking job status:', error);
-        }
-      };
-      
-      checkStatus();
     },
     async deleteChannel(channelId) {
       await api.deleteChannel(channelId)

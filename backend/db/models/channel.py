@@ -15,5 +15,13 @@ class Channel(Base):
     channel_id = Column(String, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    project = relationship("Project", back_populates="channels", )
-    summaries = relationship("Summary", back_populates="channel", cascade="all, delete", order_by="desc(Summary.created_at)")
+    project = relationship(
+        "Project",
+        back_populates="channels",
+    )
+    summaries = relationship(
+        "Summary",
+        back_populates="channel",
+        cascade="all, delete",
+        order_by="desc(Summary.created_at)",
+    )

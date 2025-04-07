@@ -87,7 +87,7 @@ class Summarizer:
                     summary_file = os.path.join(output_dir, f"summary_{timestamp}.md")
             else:
                 summary_file = output_file
-            print(f"Summary saved to: {summary_file}")
+            # print(f"Summary saved to: {summary_file}")
             return summary
 
         except Exception as e:

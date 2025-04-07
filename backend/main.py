@@ -1,6 +1,8 @@
+import asyncio
+import json
 import subprocess
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse, StreamingResponse
 import os
 import uuid
 from datetime import datetime
@@ -42,6 +44,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -157,64 +160,58 @@ async def upload_audio(
     )
 
 
-@app.get("/job-status/{job_id}")
-async def get_job_status(job_id: str):
-    """
-    Enhanced endpoint to check the status of a processing job
+@app.get("/job-events/{job_id}")
+async def job_events(request: Request, job_id: str):
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                print(f"Client disconnected for job {job_id}")
+                break
 
-    Args:
-        job_id: The job identifier
+            db = next(get_db())  
+            try:
+                summary = db.query(Summary).filter(Summary.job_id == job_id).first()
+                if not summary:
+                    yield f"data: {json.dumps({'error': 'Job not found'})}\n\n"
+                    break
 
-    Returns:
-        JSONResponse with job status and available data
-    """
-    db = next(get_db())
-    try:
-        from db.models.summary import Summary
+                print(f"Current status for {job_id}: {summary.status}")
 
-        summary = db.query(Summary).filter(Summary.job_id == job_id).first()
-        if not summary:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "job_id": job_id,
-                    "status": "not_found",
-                    "message": "Job not found in database",
-                },
-            )
+                if summary.status == "completed":
+                    payload = json.dumps({
+                        'status': 'completed',
+                        'message': 'Processing complete',
+                        'summary_id': summary.id
+                    })
+                    yield f"data: {payload}\n\n"
+                    break
+                elif summary.status == "failed":
+                    payload = json.dumps({
+                        'status': 'failed',
+                        'error': getattr(summary, 'error', 'Unknown error')
+                    })
+                    yield f"data: {payload}\n\n"
+                    break
+                else:
+                    payload = json.dumps({
+                        'status': summary.status,
+                        'message': f'Current status: {summary.status}'
+                    })
+                    yield f"data: {payload}\n\n"
+            finally:
+                db.close() 
 
-        if summary.transcript and summary.summary:
-            status = "completed"
-        elif summary.transcript:
-            status = "transcribed"  # Optional intermediate state
-        else:
-            status = "processing"
+            await asyncio.sleep(2)
 
-        available_data = {
-            "transcript": bool(summary.transcript),
-            "summary": bool(summary.summary),
-        }
-
-        response = {
-            "job_id": job_id,
-            "status": status,
-            "summary_id": summary.id,
-            "available_data": available_data,
-        }
-
-        return JSONResponse(content=response)
-
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "job_id": job_id,
-                "status": "error",
-                "message": f"Error checking job status: {str(e)}",
-            },
-        )
-    finally:
-        db.close()
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Important for Nginx/proxies
+        },
+    )
 
 
 def main():
