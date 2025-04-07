@@ -11,10 +11,11 @@ class Summary(Base):
     channel_id = Column(Integer, ForeignKey("channels.id"))
     job_id = Column(String, unique=True, index=True)
     original_filename = Column(String)
-    transcript = Column(Text)
-    summary = Column(Text)
+    transcript = Column(String, nullable=True)
+    summary = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     slack_notification_sent = Column(Boolean, default=False)
     status = Column(String, default="pending")
 
     channel = relationship("Channel", back_populates="summaries")
+

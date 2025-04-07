@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, field_validator, ConfigDict
 from datetime import datetime, timezone
 
@@ -5,8 +6,8 @@ from datetime import datetime, timezone
 class SummaryBase(BaseModel):
     channel_id: int
     original_filename: str
-    transcript: str
-    summary: str
+    transcript: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class SummaryCreate(SummaryBase):
