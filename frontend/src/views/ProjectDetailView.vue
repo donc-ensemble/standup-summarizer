@@ -15,20 +15,21 @@
     </div>
     <div class="channels-list">
       <ChannelCard 
-        v-for="channel in channels" 
+        v-for="channel in project.channels" 
         :key="channel.id" 
         :channel="channel"
         @delete="deleteChannel"
       />
-      <div v-if="channels.length === 0" class="no-channels">
+      <div v-if="project.channels.length === 0" class="no-channels">
         No channels yet. Create your first channel!
       </div>
     </div>
     
     <CreateChannelModal 
       :show="showCreateChannelModal" 
+      :projectId="project.id"
       @close="showCreateChannelModal = false"
-      @create="createChannels"
+      @created="fetchProject"  
     />
     
     <SummarizeModal 
@@ -44,6 +45,7 @@
 import ChannelCard from '@/components/ChannelCard.vue';
 import CreateChannelModal from '@/components/CreateChannelModal.vue';
 import SummarizeModal from '@/components/SummarizeModal.vue';
+import api from '@/services/api';
 
 export default {
   name: 'ProjectDetailView',
@@ -57,61 +59,30 @@ export default {
       showCreateChannelModal: false,
       showSummarizeModal: false,
       project: {
-        id: this.$route.params.id,
+        id: null,
         name: '',
         description: '',
-        created_at: ''
+        created_at: '',
+        channels: []
       },
-      channels: [
-        // Sample data, would be replaced with API calls
-        {
-          id: '1',
-          projectId: this.$route.params.id,
-          label: 'General',
-          channelId: 'general',
-          created_at: '2025-03-10T09:00:00Z'
-        },
-        {
-          id: '2',
-          projectId: this.$route.params.id,
-          label: 'Development',
-          channelId: 'dev',
-          created_at: '2025-03-15T14:30:00Z'
-        }
-      ],
       summaries: []
     };
   },
-  created() {
+  async created() {
     // In a real app, fetch project details from API
-    this.fetchProject();
+    await this.fetchProject();
   },
   methods: {
     goBack() {
-      // Navigate back to the project detail page
       this.$router.push(`/projects`);
     },
-    fetchProject() {
-      // Simulate API call
-      // This would be replaced with actual API call
-      const projects = [
-        {
-          id: '1',
-          name: 'Team Alpha Standups',
-          description: 'Daily standup recordings for the Alpha team',
-          created_at: '2025-03-10T09:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'Project Beta Planning',
-          description: 'Planning sessions for the Beta project launch',
-          created_at: '2025-03-15T14:30:00Z'
-        }
-      ];
-      
-      const foundProject = projects.find(p => p.id === this.$route.params.id);
-      if (foundProject) {
-        this.project = foundProject;
+    async fetchProject() {
+      try {
+        const response = await api.getProject(this.$route.params.id)
+        this.project = response.data
+      } catch (error) {
+        console.error('Error fetching project:', error);
+        
       }
     },
     formatDate(dateString) {
@@ -122,22 +93,9 @@ export default {
         day: 'numeric' 
       });
     },
-    createChannels(channels) {
-      // In a real application, make an API call here
-      channels.forEach(channel => {
-        const newChannel = {
-          ...channel,
-          id: Date.now().toString(), // Temporary ID generation
-          projectId: this.project.id,
-          created_at: new Date().toISOString()
-        };
-        this.channels.unshift(newChannel);
-      });
-      this.showCreateChannelModal = false;
-    },
-    deleteChannel(channelId) {
-      // In a real application, make an API call here
-      this.channels = this.channels.filter(channel => channel.id !== channelId);
+    async deleteChannel(channelId) {
+      await api.deleteChannel(channelId)
+      this.project.channels = this.project.channels.filter(channel => channel.id !== channelId);
     },
     createSummary({ channelId, audioFile }) {
       // In a real application, make an API call here

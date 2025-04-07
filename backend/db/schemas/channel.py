@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
-
+from typing import List
+from db.schemas.summary import SummaryResponse
 class ChannelBase(BaseModel):
     project_id: int
     label: str
@@ -12,6 +13,7 @@ class ChannelCreate(ChannelBase):
 class ChannelResponse(ChannelBase):
     id: int
     created_at: datetime
+    summaries: List[SummaryResponse] = []
 
     class Config:
         orm_mode = True

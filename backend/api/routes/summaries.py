@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.post("/", response_model=SummaryResponse)
 def create_summary(summary: SummaryCreate, db: Session = Depends(get_db)):
-    db_summary = Summary(**summary.dict())
+    db_summary = Summary(**summary.model_dump())
     db.add(db_summary)
     db.commit()
     db.refresh(db_summary)

@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
+
+from db.schemas.channel import ChannelResponse
 
 class ProjectBase(BaseModel):
     name: str
@@ -11,6 +13,7 @@ class ProjectCreate(ProjectBase):
 
 class ProjectResponse(ProjectBase):
     id: int
+    channels:List[ChannelResponse] = []
     created_at: datetime
 
     class Config:

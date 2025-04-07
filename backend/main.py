@@ -1,3 +1,4 @@
+import subprocess
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 import os
@@ -54,6 +55,7 @@ def read_root():
 async def upload_audio(background_tasks: BackgroundTasks, audio_file: UploadFile = File(...)):
     """
     Endpoint to upload an audio file and process it using the transcribe_summarize function.
+    Accepts audio files including MP4 and M4A formats, converting them to WAV as needed.
     
     Args:
         background_tasks: FastAPI background tasks handler
@@ -62,9 +64,10 @@ async def upload_audio(background_tasks: BackgroundTasks, audio_file: UploadFile
     Returns:
         JSONResponse with job_id and status
     """
+    # Accept audio files and video files (for MP4)
     content_type = audio_file.content_type
-    if not content_type.startswith("audio/"):
-        raise HTTPException(status_code=400, detail="File must be an audio file")
+    if not (content_type.startswith("audio/") or content_type.startswith("video/")):
+        raise HTTPException(status_code=400, detail="File must be an audio or video file")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     job_id = f"standup_{timestamp}_{uuid.uuid4().hex[:8]}"
@@ -73,14 +76,30 @@ async def upload_audio(background_tasks: BackgroundTasks, audio_file: UploadFile
     session_dir = os.path.join(base_output_dir, job_id)
     os.makedirs(session_dir, exist_ok=True)
     
-    file_extension = os.path.splitext(audio_file.filename)[1]
+    # Save original file
+    file_extension = os.path.splitext(audio_file.filename)[1].lower()
     if not file_extension:
         file_extension = ".wav"  # Default to .wav if no extension
     
-    audio_file_path = os.path.join(session_dir, f"{job_id}_recording{file_extension}")
+    original_file_path = os.path.join(session_dir, f"{job_id}_original{file_extension}")
     
-    with open(audio_file_path, "wb") as buffer:
+    with open(original_file_path, "wb") as buffer:
         shutil.copyfileobj(audio_file.file, buffer)
+    
+    # Convert to WAV if needed
+    if file_extension in ['.mp4', '.m4a']:
+        wav_file_path = os.path.join(session_dir, f"{job_id}_recording.wav")
+        try:
+            # Using ffmpeg to extract audio and convert to WAV
+            subprocess.run(
+                ["ffmpeg", "-i", original_file_path, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2", wav_file_path],
+                check=True
+            )
+            audio_file_path = wav_file_path
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(status_code=500, detail=f"Failed to convert audio: {str(e)}")
+    else:
+        audio_file_path = original_file_path
     
     background_tasks.add_task(
         transcribe_summarize_api,
@@ -96,7 +115,6 @@ async def upload_audio(background_tasks: BackgroundTasks, audio_file: UploadFile
             "session_dir": session_dir
         }
     )
-
 @app.get("/job-status/{job_id}")
 async def get_job_status(job_id: str):
     """

@@ -2,6 +2,9 @@
   <div v-if="show" class="modal-overlay">
     <div class="modal-content">
       <h2>Create Channels</h2>
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
       <form @submit.prevent="submitChannels">
         <div class="channels-form">
           <div v-for="(channel, index) in channels" :key="index" class="channel-row">
@@ -36,9 +39,9 @@
           </div>
         </div>
         
-        <button type="button" class="add-btn" @click="addChannel">
+        <!-- <button type="button" class="add-btn" @click="addChannel">
           + Add Another Channel
-        </button>
+        </button> -->
         
         <div class="form-actions">
           <button type="button" class="cancel-btn" @click="cancel">Cancel</button>
@@ -56,19 +59,27 @@
 </template>
 
 <script>
+import api from '@/services/api'; 
+
 export default {
   name: 'CreateChannelModal',
   props: {
     show: {
       type: Boolean,
       default: false
+    },
+    projectId: {
+      type: Number,
+      required: true
     }
   },
   data() {
     return {
       channels: [
         { channelId: '', label: '' },
-      ]
+      ],
+      isLoading: false,
+      error: null,
     };
   },
   computed: {
@@ -85,11 +96,33 @@ export default {
     removeChannel(index) {
       this.channels.splice(index, 1);
     },
-    submitChannels() {
+    async submitChannels() {
       if (!this.isFormValid) return;
       
-      this.$emit('create', this.channels);
-      this.resetForm();
+      this.isLoading = true;
+      this.error = null;
+      
+      try {
+        //TODO: allow for bulk create of channels.
+        const channelsToCreate = this.channels.map(channel => ({
+          project_id: this.projectId,
+          channel_id: channel.channelId,
+          label: channel.label
+        }));
+        
+        await Promise.all(
+          channelsToCreate.map(channel => api.createChannel(channel))
+        );
+        
+        this.$emit('created');
+        this.resetForm();
+        this.$emit('close');
+      } catch (error) {
+        console.error('Error creating channels:', error);
+        this.error = error.response?.data?.message || 'Failed to create channels';
+      } finally {
+        this.isLoading = false;
+      }
     },
     cancel() {
       this.resetForm();
@@ -117,6 +150,14 @@ export default {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+}
+
+.error-message {
+  color: #ff4d4d;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background-color: #ffeeee;
+  border-radius: 4px;
 }
 
 .modal-content {

@@ -1,12 +1,13 @@
 <template>
   <nav class="navbar">
     <div class="navbar-left">
-      <router-link to="/" class="site-name">Summarizer</router-link>
+      <div class="site-name">Summarizer</div>
       <router-link to="/projects" class="nav-link">Projects</router-link>
       <router-link to="/channels" class="nav-link">Channels</router-link>
       <router-link to="/summaries" class="nav-link">Summaries</router-link>
     </div>
-    <div class="navbar-right">
+    <!-- FOR FUTURE LOGOUT ETC.. -->
+    <!-- <div class="navbar-right">
       <div class="user-menu" @click="toggleDropdown">
         <div class="user-icon">
           <i class="fas fa-user"></i>
@@ -15,7 +16,7 @@
           <div class="dropdown-item" @click="logout">Logout</div>
         </div>
       </div>
-    </div>
+    </div> -->
   </nav>
 </template>
 
@@ -32,7 +33,6 @@ export default {
       this.showDropdown = !this.showDropdown;
     },
     logout() {
-      // Implement logout functionality
       console.log('Logging out...');
       this.showDropdown = false;
     }

@@ -2,7 +2,7 @@
   <div class="channel-card" @click="navigateToChannel">
     <div class="channel-content">
       <h3 class="channel-label">{{ channel.label }}</h3>
-      <p class="channel-id">ID: {{ channel.channelId }}</p>
+      <p class="channel-id">ID: {{ channel.channel_id }}</p>
       <p class="channel-created">Created at: {{ formatDate(channel.created_at) }}</p>
     </div>
     <div class="channel-actions">
