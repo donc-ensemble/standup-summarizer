@@ -48,8 +48,14 @@ export default {
   padding: 1rem 2rem;
   background-color: #FFFFFF;
   border-bottom: 1px solid #e0e0e0;
-}
+  
+  position: sticky;
+  top: 0;
+  z-index: 1000; 
+  width: 100%;
 
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
 .navbar-left {
   display: flex;
   align-items: center;
