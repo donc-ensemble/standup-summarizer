@@ -26,7 +26,7 @@ def read_summary(summary_id: int, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=list[SummaryResponse])
 def read_summaries(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return db.query(Summary).offset(skip).limit(limit).all()
+    return db.query(Summary).order_by(Summary.created_at).offset(skip).limit(limit).all()
 
 
 @router.get("/channel/{channel_id}", response_model=list[SummaryResponse])
