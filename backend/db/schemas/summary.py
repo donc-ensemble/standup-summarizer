@@ -15,6 +15,6 @@ class SummaryResponse(SummaryBase):
     job_id: str
     created_at: datetime
     slack_notification_sent: bool
-
+    status: str
     class Config:
         from_attributes = True

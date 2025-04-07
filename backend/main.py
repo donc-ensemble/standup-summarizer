@@ -148,7 +148,6 @@ async def get_job_status(job_id: str):
     try:
         from db.models.summary import Summary
         summary = db.query(Summary).filter(Summary.job_id == job_id).first()
-        print(summary, "test")
         if not summary:
             return JSONResponse(
                 status_code=404,
