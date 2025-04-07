@@ -6,6 +6,7 @@ SQLALCHEMY_DATABASE_URL = "postgresql://postgres:postgres@db:5432/summarizer_db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def get_db():
     db = SessionLocal()
     try:
