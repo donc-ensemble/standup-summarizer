@@ -13,9 +13,9 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+RUN pip install alembic
 
-RUN mkdir -p audio transcripts summaries output
+COPY . .
 
 EXPOSE 8000
 
