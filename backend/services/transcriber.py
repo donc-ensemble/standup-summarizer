@@ -58,7 +58,7 @@ class Transcriber:
         with open(transcript_file, "w") as f:
             f.write(result["text"])
 
-        print(f"Transcript saved to: {transcript_file}")
+        # print(f"Transcript saved to: {transcript_file}")
         return result
 
     def transcribe_audio_array(self, audio_array, sample_rate=16000, output_file=None):

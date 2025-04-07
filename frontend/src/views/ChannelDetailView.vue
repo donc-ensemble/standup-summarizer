@@ -85,7 +85,6 @@ export default {
         this.$router.push('/projects');
       }
     },
-    
     async fetchChannel() {
       this.loading = true;
       this.error = null;
@@ -93,7 +92,9 @@ export default {
         const response = await api.getChannel(this.$route.params.id);
         this.channel = {
           ...response.data,
-          summaries: response.data.summaries.map(summary => ({
+          summaries: [...response.data.summaries]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .map(summary => ({
             ...summary,
             collapsed: this.shouldShowToggle(summary.summary)
           }))

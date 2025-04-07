@@ -13,5 +13,8 @@ class Project(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     channels = relationship(
-        "Channel", back_populates="project", cascade="all, delete-orphan", order_by="desc(Channel.created_at)"
+        "Channel",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="desc(Channel.created_at)",
     )

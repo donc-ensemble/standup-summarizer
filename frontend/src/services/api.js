@@ -42,9 +42,8 @@ export default {
     return api.post('/summaries', summaryData);
   },
 
-  // In your api.js
+  // Uploads and SSE
   uploadAudio(formData, channelId) {
-    console.log('API uploading with channel ID:', channelId); // Add this log
     return api.post(`/upload-audio/?channel_id=${channelId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -53,7 +52,7 @@ export default {
   },
 
   getJobStatus(jobId) {
-    return api.get(`/job-status/${jobId}`);
+    return api.get(`/job-events/${jobId}`);
   }
 
   
