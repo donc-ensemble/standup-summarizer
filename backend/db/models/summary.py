@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from db.base import Base
 from sqlalchemy.orm import relationship
 
+
 class Summary(Base):
     __tablename__ = "summaries"
 
@@ -15,5 +16,5 @@ class Summary(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     slack_notification_sent = Column(Boolean, default=False)
     status = Column(String, default="pending")
-    
+
     channel = relationship("Channel", back_populates="summaries")

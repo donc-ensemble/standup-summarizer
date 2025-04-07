@@ -1,5 +1,6 @@
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel, field_validator, ConfigDict
+from datetime import datetime, timezone
+
 
 class SummaryBase(BaseModel):
     channel_id: int
@@ -7,8 +8,10 @@ class SummaryBase(BaseModel):
     transcript: str
     summary: str
 
+
 class SummaryCreate(SummaryBase):
     job_id: str
+
 
 class SummaryResponse(SummaryBase):
     id: int
@@ -16,5 +19,31 @@ class SummaryResponse(SummaryBase):
     created_at: datetime
     slack_notification_sent: bool
     status: str
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders={
+            datetime: lambda dt: (
+                dt.astimezone().isoformat()
+                if dt.tzinfo
+                else dt.replace(tzinfo=timezone.utc).astimezone().isoformat()
+            )
+        },
+    )
+
+    @field_validator("created_at")
+    def convert_datetime_to_local(cls, v: datetime) -> datetime:
+        if v is None:
+            return v
+
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+
+        return v.astimezone()
+
+    @field_validator("status")
+    def validate_status(cls, v: str) -> str:
+        allowed_statuses = {"pending", "processing", "completed", "failed"}
+        if v not in allowed_statuses:
+            raise ValueError(f"Status must be one of {allowed_statuses}")
+        return v.lower()
