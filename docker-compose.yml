@@ -21,12 +21,10 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend:/app/backend
-      - ./output:/app/output
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/summarizer_db
-      OUTPUT_DIRECTORY: /app/output
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       WHISPER_MODEL: ${WHISPER_MODEL:-base}
       SLACK_CHANNEL_ID: ${SLACK_CHANNEL_ID}
