@@ -8,22 +8,26 @@ export function useJobToast() {
     console.debug(`[useJobToast] Setting up monitoring for job ${jobId}`)
     const eventSource = eventBus.setupSSEConnection(jobId)
     let toastId = null
-    let hasProcessingToast = false
-    let wasManuallyDismissed = false 
+    let processingToastShown = false
+    let processingToastDismissed = false
     
     const createToast = (content, options = {}) => {
       console.debug(`[useJobToast] Creating new toast for job ${jobId}`, { content, options })
-      return toast.info(content, {
+      // Set default timeout to 5 seconds for all toasts
+      const finalOptions = {
+        timeout: 5000,
         ...options,
         onClose: () => {
           console.debug(`[useJobToast] Toast for job ${jobId} was closed`)
-          if (!options.timeout) {
-            wasManuallyDismissed = true
+          if (options.type === 'info' || !options.type) {
+            processingToastDismissed = true;
           }
-          toastId = null
-          hasProcessingToast = false
+          if (options.onClose) options.onClose();
+          toastId = null;
         }
-      })
+      };
+      
+      return toast.info(content, finalOptions);
     }
 
     const updateOrCreateToast = (content, options = {}) => {
@@ -33,23 +37,29 @@ export function useJobToast() {
         toastExists: !!toastId
       })
 
+      // Set default timeout to 5 seconds
+      const finalOptions = {
+        timeout: 5000,
+        ...options
+      };
+
       if (toastId) {
         try {
           toast.update(toastId, { 
             content, 
-            ...options 
+            ...finalOptions 
           })
           console.debug(`[useJobToast] Successfully updated toast ${toastId}`)
           return toastId
         } catch (e) {
           console.debug(`[useJobToast] Failed to update toast ${toastId}, it was dismissed`, e)
           toastId = null
-          hasProcessingToast = false
         }
       }
       
-      if (!toastId && !wasManuallyDismissed) { 
-        toastId = createToast(content, options)
+      // Only create new toast if it's not a processing toast that was previously dismissed
+      if (!toastId && !(content.includes('Status: processing') && processingToastDismissed)) { 
+        toastId = createToast(content, finalOptions)
         console.debug(`[useJobToast] Created new toast with ID ${toastId}`)
       }
       
@@ -67,7 +77,7 @@ export function useJobToast() {
 
     eventSource.addEventListener('open', () => {
       console.debug(`[useJobToast] SSE connection opened for job ${jobId}`)
-      wasManuallyDismissed = false 
+      // Reset for new connections, but keep processingToastDismissed status
     })
 
     eventSource.onmessage = (event) => {
@@ -82,74 +92,77 @@ export function useJobToast() {
       
       if (data.status === 'processing') {
         if (statusCallback) statusCallback('processing', data);
-        if (!hasProcessingToast && !wasManuallyDismissed) { // Only show if not manually dismissed
+        
+        // Only show processing toast if it hasn't been dismissed before
+        if (!processingToastShown && !processingToastDismissed) {
           updateOrCreateToast(`Status: ${data.status}`, {
-            timeout: false,
-            closeOnClick: false
+            type: 'info',
+            timeout: 5000  // Auto-dismiss after 5 seconds
           })
-          hasProcessingToast = true
+          processingToastShown = true;
         }
       } else if (data.status === 'completed') {
         console.debug(`[useJobToast] Job ${jobId} completed successfully`);
         if (statusCallback) statusCallback('completed', data);
         
-        // Reset the manual dismissal flag for completion/error cases
-        wasManuallyDismissed = false;
+        let toastMessage = 'Processing completed successfully!';
+        let toastType = 'success';
         
-        if (toastId && hasProcessingToast) {
-          // Clear the existing toast first to ensure proper styling
-          toast.dismiss(toastId);
-          // Create new success toast
-          toastId = toast.success('Processing completed successfully!', {
-            timeout: 5000,
-            onClose: () => {
-              toastId = null;
-              hasProcessingToast = false;
-            }
-          });
-        } else {
-          toastId = toast.success('Processing completed successfully!', {
-            timeout: 5000,
-            onClose: () => {
-              toastId = null;
-              hasProcessingToast = false;
-            }
-          });
+        // Handle Slack notification failure
+        if (data.slack_notification_sent === false) {
+          toastMessage = data.slack_error 
+            ? `Processing completed but failed to send to Slack: ${data.slack_error}`
+            : 'Processing completed but failed to send to Slack';
+          toastType = 'warning';
         }
+
+        // Always show completion toast, regardless of previous toast status
+        if (toastId) {
+          toast.dismiss(toastId);
+          toastId = null;
+        }
+        
+        toastId = toast[toastType](toastMessage, {
+          timeout: 5000,
+          onClose: () => {
+            toastId = null;
+          }
+        });
+        
         eventSource.close();
         delete eventBus.eventSources[jobId];
       } else if (data.status === 'failed') {
         console.error(`[useJobToast] Job ${jobId} failed:`, data.error)
         if (statusCallback) statusCallback('failed', data);
         
-        // Reset the manual dismissal flag for completion/error cases
-        wasManuallyDismissed = false;
+        const errorMessage = data.error || 'Unknown error';
+        const slackError = data.slack_error ? ` (Slack error: ${data.slack_error})` : '';
         
-        if (toastId && hasProcessingToast) {
-          updateOrCreateToast(`Processing failed: ${data.error || 'Unknown error'}`, {
-            type: 'error',
-            timeout: 5000
-          })
-        } else {
-          toastId = toast.error(`Processing failed: ${data.error || 'Unknown error'}`, {
-            timeout: 5000,
-            onClose: () => {
-              toastId = null
-              hasProcessingToast = false
-            }
-          })
+        // Always show error toast
+        if (toastId) {
+          toast.dismiss(toastId);
+          toastId = null;
         }
         
-        eventSource.close()
-        delete eventBus.eventSources[jobId]
+        toastId = toast.error(`Processing failed: ${errorMessage}${slackError}`, {
+          timeout: 5000,
+          onClose: () => {
+            toastId = null;
+          }
+        });
+        
+        eventSource.close();
+        delete eventBus.eventSources[jobId];
       } else if (data.status) {
         if (statusCallback) statusCallback(data.status, data);
-        console.debug(`[useJobToast] Job ${jobId} non-standard status update:`, data.status)
-        if (!wasManuallyDismissed) { // Only show if not manually dismissed
+        console.debug(`[useJobToast] Job ${jobId} non-standard status update:`, data.status);
+        
+        // Only show if it's not a processing toast that was previously dismissed
+        if (!processingToastDismissed) {
           updateOrCreateToast(`Status: ${data.status}`, {
-            timeout: false,
-            closeOnClick: false
-          })
+            type: 'info',
+            timeout: 5000  // Auto-dismiss after 5 seconds
+          });
         }
       }
     }
@@ -158,43 +171,36 @@ export function useJobToast() {
       console.error(`[useJobToast] SSE error for job ${jobId}:`, error)
       if (statusCallback) statusCallback('error', { error });
       
-      // Reset the manual dismissal flag for error cases
-      wasManuallyDismissed = false;
-      
       if (toastId) {
-        updateOrCreateToast('Connection to updates server lost', {
-          type: 'error',
-          timeout: 5000
-        })
-      } else {
-        toastId = toast.error('Connection to updates server lost', {
-          timeout: 5000,
-          onClose: () => {
-            toastId = null
-            hasProcessingToast = false
-          }
-        })
+        toast.dismiss(toastId);
+        toastId = null;
       }
       
-      eventSource.close()
-      delete eventBus.eventSources[jobId]
+      toastId = toast.error('Connection to updates server lost', {
+        timeout: 5000,
+        onClose: () => {
+          toastId = null;
+        }
+      });
+      
+      eventSource.close();
+      delete eventBus.eventSources[jobId];
     }
 
     return () => {
       console.debug(`[useJobToast] Cleaning up monitoring for job ${jobId}`)
       if (eventSource) {
-        eventSource.close()
+        eventSource.close();
       }
       if (toastId) {
         try {
-          toast.dismiss(toastId)
-          toastId = null
-          hasProcessingToast = false
+          toast.dismiss(toastId);
+          toastId = null;
         } catch (e) {
-          console.debug('[useJobToast] Error dismissing toast during cleanup:', e)
+          console.debug('[useJobToast] Error dismissing toast during cleanup:', e);
         }
       }
-      delete eventBus.eventSources[jobId]
+      delete eventBus.eventSources[jobId];
     }
   }
   

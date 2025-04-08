@@ -1,56 +1,42 @@
 <template>
   <div v-if="show" class="modal-overlay">
     <div class="modal-content">
-      <h2>Create Channels</h2>
+      <h2>Create Channel</h2>
       <div v-if="error" class="error-message">
         {{ error }}
       </div>
-      <form @submit.prevent="submitChannels">
-        <div class="channels-form">
-          <div v-for="(channel, index) in channels" :key="index" class="channel-row">
-            <div class="form-group">
-              <label :for="'channelId' + index">Channel ID *</label>
-              <input 
-                type="text" 
-                :id="'channelId' + index" 
-                v-model="channel.channelId" 
-                required 
-                placeholder="Enter channel ID"
-              >
-            </div>
-            <div class="form-group">
-              <label :for="'label' + index">Label *</label>
-              <input 
-                type="text" 
-                :id="'label' + index" 
-                v-model="channel.label" 
-                required 
-                placeholder="Enter channel label"
-              >
-            </div>
-            <button 
-              v-if="index > 0" 
-              type="button" 
-              class="remove-btn" 
-              @click="removeChannel(index)"
+      <form @submit.prevent="submitChannel">
+        <div class="channel-form">
+          <div class="form-group">
+            <label for="channelId">Channel ID *</label>
+            <input 
+              type="text" 
+              id="channelId" 
+              v-model="channel.channelId" 
+              required 
+              placeholder="Enter channel ID"
             >
-              ×
-            </button>
+          </div>
+          <div class="form-group">
+            <label for="label">Label *</label>
+            <input 
+              type="text" 
+              id="label" 
+              v-model="channel.label" 
+              required 
+              placeholder="Enter channel label"
+            >
           </div>
         </div>
-        
-        <!-- <button type="button" class="add-btn" @click="addChannel">
-          + Add Another Channel
-        </button> -->
         
         <div class="form-actions">
           <button type="button" class="cancel-btn" @click="cancel">Cancel</button>
           <button 
             type="submit" 
             class="submit-btn" 
-            :disabled="!isFormValid"
+            :disabled="!isFormValid || isLoading"
           >
-            Create Channels
+            {{ isLoading ? 'Creating...' : 'Create Channel' }}
           </button>
         </div>
       </form>
@@ -75,51 +61,41 @@ export default {
   },
   data() {
     return {
-      channels: [
-        { channelId: '', label: '' },
-      ],
+      channel: {
+        channelId: '',
+        label: ''
+      },
       isLoading: false,
       error: null,
     };
   },
   computed: {
     isFormValid() {
-      return this.channels.every(channel => 
-        channel.channelId.trim() && channel.label.trim()
-      );
+      return this.channel.channelId.trim() && this.channel.label.trim();
     }
   },
   methods: {
-    addChannel() {
-      this.channels.push({ channelId: '', label: '' });
-    },
-    removeChannel(index) {
-      this.channels.splice(index, 1);
-    },
-    async submitChannels() {
+    async submitChannel() {
       if (!this.isFormValid) return;
       
       this.isLoading = true;
       this.error = null;
       
       try {
-        //TODO: allow for bulk create of channels.
-        const channelsToCreate = this.channels.map(channel => ({
+        const channelToCreate = {
           project_id: this.projectId,
-          channel_id: channel.channelId,
-          label: channel.label
-        }));
+          channel_id: this.channel.channelId,
+          label: this.channel.label
+        };
         
-        await Promise.all(
-          channelsToCreate.map(channel => api.createChannel(channel))
-        );
+        await api.createChannel(channelToCreate);
         
         this.$emit('created');
         this.resetForm();
         this.$emit('close');
       } catch (error) {
-        console.error('Error creating channels:', error);
-        this.error = error.response?.data?.message || 'Failed to create channels';
+        console.error('Error creating channel:', error);
+        this.error = error.response?.data?.message || 'Failed to create channel';
       } finally {
         this.isLoading = false;
       }
@@ -129,10 +105,10 @@ export default {
       this.$emit('close');
     },
     resetForm() {
-      this.channels = [
-        { channelId: '', label: '' },
-        { channelId: '', label: '' }
-      ];
+      this.channel = {
+        channelId: '',
+        label: ''
+      };
     }
   }
 };
@@ -165,7 +141,7 @@ export default {
   padding: 2rem;
   border-radius: 8px;
   width: 90%;
-  max-width: 600px;
+  max-width: 500px;
 }
 
 h2 {
@@ -174,42 +150,8 @@ h2 {
   margin-bottom: 1.5rem;
 }
 
-.channels-form {
+.channel-form {
   margin-bottom: 1.5rem;
-}
-
-.channel-row {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  align-items: flex-end;
-  position: relative;
-}
-
-.channel-row > .form-group {
-  flex: 1;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  color: #ff4d4d;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.add-btn {
-  background: none;
-  border: none;
-  color: #2686BB;
-  cursor: pointer;
-  padding: 0.5rem 1rem;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .form-group {
