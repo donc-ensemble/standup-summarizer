@@ -111,9 +111,10 @@ export function useJobToast() {
         // Handle Slack notification failure
         if (data.slack_notification_sent === false) {
           toastMessage = data.slack_error 
-            ? `Processing completed but failed to send to Slack: ${data.slack_error}`
-            : 'Processing completed but failed to send to Slack';
-          toastType = 'warning';
+            ? `${data.slack_error}`
+            : 'Processing completed and did not send to Slack';
+
+          toastType = data.slack_error ? 'warning' : 'success';
         }
 
         // Always show completion toast, regardless of previous toast status

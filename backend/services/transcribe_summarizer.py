@@ -66,7 +66,11 @@ def send_to_slack(summary, channel_id=None):
         db.close()
 
 def transcribe_summarize_api(
-    audio_file_path: str, channel_id: int, original_filename: str, job_id: str
+    audio_file_path: str, 
+    channel_id: int, 
+    original_filename: str, 
+    job_id: str, 
+    send_to_slack_bool: bool  # Changed parameter name to be more descriptive
 ):
     db = next(get_db())
     try:
@@ -79,29 +83,34 @@ def transcribe_summarize_api(
             {"status": "processing"}
         )
         db.commit()
-        print(f"✅ Updated database status to 'completed' for job {job_id}")
+
         transcriber = Transcriber()
         transcription = transcriber.transcribe_file(audio_file_path)
 
         summarizer = Summarizer()
         summary_text = summarizer.summarize(transcription["text"])
 
-        slack_result = send_to_slack(summary_text, channel_id)
+        # Initialize variables with default values
+        slack_success = False
         slack_error = None
         
-        if not slack_result:
-            slack_error = "Failed to send to Slack (channel not found or other error)"
+        # Only try to send to Slack if requested
+        if send_to_slack_bool:
+            slack_success = send_to_slack(summary_text, channel_id)
+            if not slack_success:
+                slack_error = "Failed to send to Slack (channel not found or other error)"
             
         db.query(Summary).filter(Summary.job_id == job_id).update(
             {
                 "status": "completed",
                 "transcript": transcription["text"],
                 "summary": summary_text,
-                "slack_notification_sent": send_to_slack(summary_text, channel_id),
+                "slack_notification_sent": slack_success,
                 "slack_error": slack_error,
             }
         )
         db.commit()
+        print(f"✅ Updated database status to 'completed' for job {job_id}")
 
     except Exception as e:
         db.rollback()

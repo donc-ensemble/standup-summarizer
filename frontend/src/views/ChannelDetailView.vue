@@ -44,6 +44,10 @@
               </h3>
               <div class="summary-actions">
                 <span class="summary-date">{{ formatDate(summary.created_at) }}</span>
+                <span class="slack-status" :class="{ 'success': summary.slack_notification_sent, 'error': summary.slack_error }">
+                  {{ summary.slack_notification_sent ? 'Sent to Slack' : 'Not sent to Slack' }}
+                  <span v-if="summary.slack_error" class="error-tooltip" :title="summary.slack_error">⚠️</span>
+                </span>
                 <button class="action-btn" @click.stop="openSummaryDeleteModal(summary.id)">
                   ...
                 </button>
@@ -321,6 +325,29 @@ export default {
 </script>
 
 <style scoped>
+.slack-status {
+  font-size: 0.85rem;
+  color: #666;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+}
+
+.slack-status.success {
+  background-color: #e6f7e6;
+  color: #2e7d32;
+}
+
+.slack-status.error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.error-tooltip {
+  margin-left: 0.25rem;
+  cursor: help;
+}
+
 .loading, .error {
   padding: 2rem;
   text-align: center;
