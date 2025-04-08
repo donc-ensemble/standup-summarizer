@@ -55,28 +55,18 @@
 
         <div class="form-group">
           <label>Send to Slack</label>
-          <div class="radio-group">
-            <label class="radio-option">
-              <input 
-                type="radio" 
-                v-model="sendToSlack" 
-                :value="true" 
-                :disabled="isLoading"
-              >
-              <span>Yes</span>
-            </label>
-            <label class="radio-option">
-              <input 
-                type="radio" 
-                v-model="sendToSlack" 
-                :value="false" 
-                :disabled="isLoading"
-              >
-              <span>No</span>
-            </label>
+          <div class="toggle-switch">
+            <input 
+              type="checkbox" 
+              id="slackToggle"
+              v-model="sendToSlack"
+              :disabled="isLoading"
+              class="toggle-input"
+            >
+            <label for="slackToggle" class="toggle-label"></label>
+            <span class="toggle-text">{{ sendToSlack ? 'Yes' : 'No' }}</span>
           </div>
         </div>
-
 
         <div class="form-actions">
           <button type="button" class="btn cancel-btn" @click="cancel">
@@ -210,25 +200,59 @@ export default {
 </script>
 
 <style scoped>
-.radio-group {
+.toggle-switch {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
   margin-top: 0.5rem;
 }
 
-.radio-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
+.toggle-input {
+  height: 0;
+  width: 0;
+  visibility: hidden;
+  position: absolute;
 }
 
-.radio-option input[type="radio"] {
-  margin: 0;
+.toggle-label {
   cursor: pointer;
+  width: 50px;
+  height: 26px;
+  background: #e0e0e0;
+  display: block;
+  border-radius: 50px;
+  position: relative;
+  transition: background-color 0.2s;
 }
 
-.radio-option span {
+.toggle-label:after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 20px;
+  transition: 0.2s;
+}
+
+.toggle-input:checked + .toggle-label {
+  background: #2686BB;
+}
+
+.toggle-input:checked + .toggle-label:after {
+  left: calc(100% - 3px);
+  transform: translateX(-100%);
+}
+
+.toggle-input:disabled + .toggle-label {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toggle-text {
+  font-size: 0.95rem;
   color: #333;
 }
 

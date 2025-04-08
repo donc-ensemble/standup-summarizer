@@ -118,7 +118,7 @@ h1 {
 
 .no-projects {
   text-align: center;
-  padding: 3rem 0;
+  padding: 3rem;
   color: #777;
   background-color: #f9f9f9;
   border-radius: 8px;
