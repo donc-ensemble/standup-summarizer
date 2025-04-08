@@ -181,7 +181,9 @@ async def job_events(request: Request, job_id: str):
                     payload = json.dumps({
                         'status': 'completed',
                         'message': 'Processing complete',
-                        'summary_id': summary.id
+                        'summary_id': summary.id,
+                        'slack_notification_sent': summary.slack_notification_sent,
+                        'slack_error': getattr(summary, 'slack_error', None)
                     })
                     yield f"data: {payload}\n\n"
                     break

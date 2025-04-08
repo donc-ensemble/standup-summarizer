@@ -16,6 +16,7 @@ class Summary(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     slack_notification_sent = Column(Boolean, default=False)
     status = Column(String, default="pending")
+    slack_error = Column(String, nullable=True)
 
     channel = relationship("Channel", back_populates="summaries")
 
