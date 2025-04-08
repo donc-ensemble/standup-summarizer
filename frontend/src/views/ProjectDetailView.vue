@@ -10,7 +10,12 @@
       
       <div class="project-actions">
         <button class="create-btn" @click="showCreateChannelModal = true">Create Channel</button>
-        <button class="create-btn summarize" @click="showSummarizeModal = true">Summarize</button>
+        <!-- TODO: 
+          - Update this so that we can summarize from project detail view
+          - Bug: when uploading from here, the channel detail view summary must display generating summary and auto updates once complete
+          - Possible solution: Check the event bus and create an event emitter
+        -->
+        <!-- <button class="create-btn summarize" @click="showSummarizeModal = true">Summarize</button> -->
       </div>
     </div>
     <div class="channels-list">
