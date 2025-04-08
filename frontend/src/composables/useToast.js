@@ -9,6 +9,7 @@ export function useJobToast() {
     const eventSource = eventBus.setupSSEConnection(jobId)
     let toastId = null
     let hasProcessingToast = false
+    let wasManuallyDismissed = false 
     
     const createToast = (content, options = {}) => {
       console.debug(`[useJobToast] Creating new toast for job ${jobId}`, { content, options })
@@ -16,6 +17,9 @@ export function useJobToast() {
         ...options,
         onClose: () => {
           console.debug(`[useJobToast] Toast for job ${jobId} was closed`)
+          if (!options.timeout) {
+            wasManuallyDismissed = true
+          }
           toastId = null
           hasProcessingToast = false
         }
@@ -44,7 +48,7 @@ export function useJobToast() {
         }
       }
       
-      if (!toastId) {
+      if (!toastId && !wasManuallyDismissed) { 
         toastId = createToast(content, options)
         console.debug(`[useJobToast] Created new toast with ID ${toastId}`)
       }
@@ -63,6 +67,7 @@ export function useJobToast() {
 
     eventSource.addEventListener('open', () => {
       console.debug(`[useJobToast] SSE connection opened for job ${jobId}`)
+      wasManuallyDismissed = false 
     })
 
     eventSource.onmessage = (event) => {
@@ -77,16 +82,19 @@ export function useJobToast() {
       
       if (data.status === 'processing') {
         if (statusCallback) statusCallback('processing', data);
-        if (!hasProcessingToast) {
+        if (!hasProcessingToast && !wasManuallyDismissed) { // Only show if not manually dismissed
           updateOrCreateToast(`Status: ${data.status}`, {
             timeout: false,
             closeOnClick: false
           })
           hasProcessingToast = true
         }
-      }  else if (data.status === 'completed') {
+      } else if (data.status === 'completed') {
         console.debug(`[useJobToast] Job ${jobId} completed successfully`);
         if (statusCallback) statusCallback('completed', data);
+        
+        // Reset the manual dismissal flag for completion/error cases
+        wasManuallyDismissed = false;
         
         if (toastId && hasProcessingToast) {
           // Clear the existing toast first to ensure proper styling
@@ -114,6 +122,9 @@ export function useJobToast() {
         console.error(`[useJobToast] Job ${jobId} failed:`, data.error)
         if (statusCallback) statusCallback('failed', data);
         
+        // Reset the manual dismissal flag for completion/error cases
+        wasManuallyDismissed = false;
+        
         if (toastId && hasProcessingToast) {
           updateOrCreateToast(`Processing failed: ${data.error || 'Unknown error'}`, {
             type: 'error',
@@ -134,16 +145,21 @@ export function useJobToast() {
       } else if (data.status) {
         if (statusCallback) statusCallback(data.status, data);
         console.debug(`[useJobToast] Job ${jobId} non-standard status update:`, data.status)
-        updateOrCreateToast(`Status: ${data.status}`, {
-          timeout: false,
-          closeOnClick: false
-        })
+        if (!wasManuallyDismissed) { // Only show if not manually dismissed
+          updateOrCreateToast(`Status: ${data.status}`, {
+            timeout: false,
+            closeOnClick: false
+          })
+        }
       }
     }
     
     eventSource.onerror = (error) => {
       console.error(`[useJobToast] SSE error for job ${jobId}:`, error)
       if (statusCallback) statusCallback('error', { error });
+      
+      // Reset the manual dismissal flag for error cases
+      wasManuallyDismissed = false;
       
       if (toastId) {
         updateOrCreateToast('Connection to updates server lost', {
