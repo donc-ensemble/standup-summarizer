@@ -7,13 +7,14 @@
       </div>
 
       <form @submit.prevent="handleSubmit">
-        <div class="form-group">
+        <div class="form-group" v-if="!hideChannelDropdown">
           <label for="channel">Channel *</label>
           <select
             id="channel"
             v-model="selectedChannelId"
             required
             class="form-control"
+            v-if="channels.length > 0"
           >
             <option value="" disabled>Select a channel</option>
             <option
@@ -24,6 +25,7 @@
               {{ channel.label }} (ID: {{ channel.id }})
             </option>
           </select>
+          <p v-else class="no-channels">No channels available</p>
         </div>
 
         <div class="form-group">
@@ -81,6 +83,10 @@ export default {
       type: Array,
       default: () => [],
       validator: value => value.every(ch => ch.id && ch.label)
+    },
+    hideChannelDropdown: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -94,7 +100,10 @@ export default {
   },
   computed: {
     isFormValid() {
-      return this.selectedChannelId && this.audioFile;
+      if (this.hideChannelDropdown) {
+        return !!this.audioFile;
+      }
+      return !!this.selectedChannelId && !!this.audioFile;
     }
   },
   methods: {
@@ -113,7 +122,6 @@ export default {
         return;
       }
 
-      // Validate file size (50MB max)
       if (file.size > 50 * 1024 * 1024) {
         this.error = 'File too large. Maximum size is 50MB.';
         this.resetForm();
@@ -123,47 +131,40 @@ export default {
       this.error = null;
       this.audioFile = file;
     },
-    // Inside SummarizeModal.vue - handleSubmit method
     async handleSubmit(event) {
-      // Make sure we're accepting the event parameter
-      if (event) {
-        event.preventDefault(); // Explicitly prevent default form submission
-      }
+      event?.preventDefault();
       
-      if (this.hasSubmitted) return; // Prevent duplicate submissions
-      if (!this.isFormValid) return;
+      if (this.hasSubmitted || !this.isFormValid) return;
 
       this.isLoading = true;
       this.error = null;
       this.hasSubmitted = true;
 
       try {
-        // Create FormData and append the file
         const formData = new FormData();
         formData.append('audio_file', this.audioFile);
         
-        console.log('Submitting with channel ID:', this.selectedChannelId);
+        if (!this.hideChannelDropdown) {
+          this.$emit('submit', {
+            formData: formData,
+            channelId: this.selectedChannelId
+          });
+        } else {
+          this.$emit('submit', formData);
+        }
         
-        // Emit the submit event with all needed data
-        this.$emit('submit', {
-          formData: formData,
-          channelId: this.selectedChannelId
-        });
-        this.isLoading = false
-        // Close the modal after successful submission
         this.$emit('close');
-        
       } catch (err) {
         this.error = err.message || 'Failed to upload file. Please try again.';
-        this.hasSubmitted = false;
+      } finally {
         this.isLoading = false;
+        this.hasSubmitted = false;
       }
     },
     cancel() {
       this.resetForm();
       this.$emit('close');
     },
-    
     resetForm() {
       this.selectedChannelId = '';
       this.audioFile = null;
@@ -176,10 +177,6 @@ export default {
   },
   watch: {
     show(newVal) {
-      if (newVal && this.channels.length > 0) {
-        // Pre-select the first channel when modal opens (optional)
-        // this.selectedChannelId = this.channels[0].id;
-      }
       if (!newVal) {
         this.resetForm();
       }
@@ -187,7 +184,6 @@ export default {
   }
 };
 </script>
-
 
 <style scoped>
 .modal-overlay {
@@ -310,6 +306,12 @@ label {
   margin-top: 0.5rem;
 }
 
+.no-channels {
+  color: #666;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
 .alert {
   padding: 0.75rem 1rem;
   border-radius: 6px;
@@ -323,12 +325,6 @@ label {
   background-color: #fff0f0;
   color: #ff4d4f;
   border: 1px solid #ffd6d6;
-}
-
-.success-message {
-  background-color: #f0fff4;
-  color: #52c41a;
-  border: 1px solid #d6ffdf;
 }
 
 .alert-icon {

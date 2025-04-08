@@ -13,9 +13,6 @@
         <div class="channel-meta">
           <div class="channel-title-row">
             <h1>{{ channel.label }}</h1>
-            <button class="action-btn" @click.stop="showChannelDeleteModal = true">
-              <font-awesome-icon icon="ellipsis-vertical" />
-            </button>
           </div>
           <div class="meta-row">
             <span class="channel-id">ID: {{ channel.channel_id }}</span>
@@ -79,13 +76,29 @@
       </div>
     </div>
   </div>
+  <SummarizeModal 
+      :show="showSummarizeModal" 
+      :hideChannelDropdown="true"
+      @close="showSummarizeModal = false"
+      @submit="handleFileUpload"
+    />
 </template>
 
 <script>
 import api from '@/services/api';
+import { useJobToast } from '@/composables/useToast';
+import SummarizeModal from '@/components/SummarizeModal.vue';
+
 
 export default {
   name: 'ChannelDetailView',
+  components: {
+    SummarizeModal
+  },
+  setup() {
+    const { monitorJob } = useJobToast();
+    return { monitorJob };
+  },
   data() {
     return {
       channel: {
@@ -98,10 +111,10 @@ export default {
       },
       loading: false,
       error: null,
-      showChannelDeleteModal: false,
       showSummaryDeleteModal: false,
       deletingSummaryId: null,
-      summaryToDelete: null
+      summaryToDelete: null,
+      showSummarizeModal: false,
     };
   },
   async created() {
@@ -118,6 +131,17 @@ export default {
     openSummaryDeleteModal(summaryId) {
       this.summaryToDelete = summaryId;
       this.showSummaryDeleteModal = true;
+    },
+    async handleFileUpload(formData) {
+      try {
+        const response = await api.uploadAudio(formData, this.$route.params.id);
+        const res = this.monitorJob(response.data.job_id);
+        await this.fetchChannel();
+      } catch (error) {
+        console.error('Upload failed:', error);
+      } finally {
+        this.showSummarizeModal = false;
+      }
     },
     async confirmDeleteSummary() {
       if (this.summaryToDelete) {
@@ -222,7 +246,7 @@ export default {
   color: #777;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
-  font-size: 1rem;
+  font-size: 1.25rem;
 }
 
 .action-btn:hover {
