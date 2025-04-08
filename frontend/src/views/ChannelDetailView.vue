@@ -22,6 +22,21 @@
       </div>
       <div class="summaries-container">
         <div class="summaries-list">
+          <!-- Generating summaries -->
+          <div v-for="job in processingJobs" :key="job.id" class="summary-card processing">
+            <div class="summary-header">
+              <h3 class="summary-title">
+                {{ getAudioFileName(job.filename) }}
+              </h3>
+            </div>
+            <div class="summary-content">
+              <div class="processing-state">
+                <div class="loading-spinner"></div>
+                <p>Generating summary...</p>
+              </div>
+            </div>
+          </div>
+          <!-- Existing summaries -->
           <div v-for="summary in channel.summaries" :key="summary.id" class="summary-card">
             <div class="summary-header">
               <h3 class="summary-title">
@@ -35,24 +50,33 @@
               </div>
             </div>
             <div class="summary-content">
-              <div class="text-content" :class="{ 'collapsed': summary.collapsed }">
-                <template v-if="summary.summary">
-                  <p v-for="(paragraph, idx) in splitSummary(summary.summary)" :key="idx">
-                    {{ paragraph }}
-                  </p>
-                </template>
-                <p v-else class="no-summary">No summary text available</p>
+              <div v-if="summary.status === 'processing'" class="processing-state">
+                <div class="loading-spinner"></div>
+                <p>Generating summary...</p>
               </div>
-              <button 
-                v-if="shouldShowToggle(summary.summary)" 
-                @click="summary.collapsed = !summary.collapsed"
-                class="toggle-btn"
-              >
-                {{ summary.collapsed ? 'Show more' : 'Show less' }}
-              </button>
+              <template v-else>
+                <div class="text-content" :class="{ 'collapsed': summary.collapsed }">
+                  <template v-if="summary.summary">
+                    <p v-for="(paragraph, idx) in splitSummary(summary.summary)" :key="idx">
+                      {{ paragraph }}
+                    </p>
+                  </template>
+                  <p v-else class="no-summary">No summary text available</p>
+                </div>
+                <button 
+                  v-if="shouldShowToggle(summary.summary)" 
+                  @click="summary.collapsed = !summary.collapsed"
+                  class="toggle-btn"
+                >
+                  {{ summary.collapsed ? 'Show more' : 'Show less' }}
+                </button>
+              </template>
             </div>
           </div>
-          <div v-if="channel.summaries.length === 0" class="no-summaries">
+
+
+          <!-- Empty state -->
+          <div v-if="channel.summaries.length === 0 && processingJobs.length === 0" class="no-summaries">
             <div class="empty-state">
               <img src="@/assets/no-summaries.svg" alt="No summaries" class="empty-icon">
               <p>No summaries yet</p>
@@ -65,7 +89,17 @@
       </div>
     </template>
 
-    <!-- Summary Delete Modal -->
+    <!-- Delete Confirmation Modals -->
+    <div v-if="showChannelDeleteModal" class="delete-modal" @click.stop>
+      <div class="delete-modal-content">
+        <p>Are you sure you want to delete this channel?</p>
+        <div class="delete-modal-actions">
+          <button @click="deleteChannel" class="delete-btn">Delete</button>
+          <button @click="showChannelDeleteModal = false" class="cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="showSummaryDeleteModal" class="delete-modal" @click.stop>
       <div class="delete-modal-content">
         <p>Are you sure you want to delete this summary?</p>
@@ -75,20 +109,21 @@
         </div>
       </div>
     </div>
-  </div>
-  <SummarizeModal 
+
+    <!-- Summarize Modal -->
+    <SummarizeModal 
       :show="showSummarizeModal" 
       :hideChannelDropdown="true"
       @close="showSummarizeModal = false"
       @submit="handleFileUpload"
     />
+  </div>
 </template>
 
 <script>
 import api from '@/services/api';
-import { useJobToast } from '@/composables/useToast';
 import SummarizeModal from '@/components/SummarizeModal.vue';
-
+import { useJobToast } from '@/composables/useToast';
 
 export default {
   name: 'ChannelDetailView',
@@ -111,14 +146,22 @@ export default {
       },
       loading: false,
       error: null,
+      showChannelDeleteModal: false,
       showSummaryDeleteModal: false,
+      showSummarizeModal: false,
       deletingSummaryId: null,
       summaryToDelete: null,
-      showSummarizeModal: false,
+      processingJobs: [],
+      activeJobMonitors: {}
     };
   },
   async created() {
     await this.fetchChannel();
+  },
+  beforeUnmount() {
+    // Clean up any active job monitors
+    Object.values(this.activeJobMonitors).forEach(cleanup => cleanup());
+    this.activeJobMonitors = {};
   },
   methods: {
     goBack() {
@@ -132,22 +175,22 @@ export default {
       this.summaryToDelete = summaryId;
       this.showSummaryDeleteModal = true;
     },
-    async handleFileUpload(formData) {
-      try {
-        const response = await api.uploadAudio(formData, this.$route.params.id);
-        const res = this.monitorJob(response.data.job_id);
-        await this.fetchChannel();
-      } catch (error) {
-        console.error('Upload failed:', error);
-      } finally {
-        this.showSummarizeModal = false;
-      }
-    },
     async confirmDeleteSummary() {
       if (this.summaryToDelete) {
         await this.deleteSummary(this.summaryToDelete);
         this.showSummaryDeleteModal = false;
         this.summaryToDelete = null;
+      }
+    },
+    async deleteChannel() {
+      try {
+        await api.deleteChannel(this.channel.id);
+        this.$router.push(`/projects/${this.channel.project_id}`);
+      } catch (error) {
+        console.error('Error deleting channel:', error);
+        alert('Failed to delete channel');
+      } finally {
+        this.showChannelDeleteModal = false;
       }
     },
     async deleteSummary(summaryId) {
@@ -169,20 +212,83 @@ export default {
       this.error = null;
       try {
         const response = await api.getChannel(this.$route.params.id);
+        
         this.channel = {
           ...response.data,
           summaries: [...response.data.summaries]
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .map(summary => ({
-            ...summary,
-            collapsed: this.shouldShowToggle(summary.summary)
-          }))
+              ...summary,
+              collapsed: this.shouldShowToggle(summary.summary),
+              status: summary.status || 'completed' // Ensure status exists
+            }))
         };
+
+        // Filter out completed processing jobs
+        this.processingJobs = this.processingJobs.filter(job => {
+          return !this.channel.summaries.some(s => 
+            s.original_filename.includes(job.filename)
+          );
+        });
+
+        // Monitor any processing summaries from the server
+        this.channel.summaries.forEach(summary => {
+          if (summary.status === 'processing' && summary.job_id && !this.activeJobMonitors[summary.job_id]) {
+            this.monitorProcessingSummary(summary.job_id);
+          }
+        });
+
       } catch (error) {
         console.error('Error fetching channel:', error);
         this.error = 'Failed to load channel details';
       } finally {
         this.loading = false;
+      }
+    },
+    monitorProcessingSummary(jobId) {
+      // Clean up any existing monitor
+      if (this.activeJobMonitors[jobId]) {
+        this.activeJobMonitors[jobId]();
+        delete this.activeJobMonitors[jobId];
+      }
+
+      const cleanup = this.monitorJob(jobId, (status, data) => {
+        if (status === 'completed') {
+          setTimeout(() => {
+            this.fetchChannel();
+          }, 1000);
+        } else if (status === 'failed') {
+          this.fetchChannel();
+        }
+      });
+
+      this.activeJobMonitors[jobId] = cleanup;
+    },
+    async handleFileUpload(formData) {
+      try {
+        const response = await api.uploadAudio(formData, this.$route.params.id);
+        const filename = formData.get('audio_file').name;
+        const jobId = response.data.job_id;
+        
+        this.processingJobs.push({ id: jobId, filename });
+        
+        const cleanup = this.monitorJob(jobId, (status, data) => {
+          if (status === 'completed') {
+            setTimeout(() => {
+              this.processingJobs = this.processingJobs.filter(job => job.id !== jobId);
+              this.fetchChannel();
+            }, 1000);
+          } else if (status === 'failed') {
+            this.processingJobs = this.processingJobs.filter(job => job.id !== jobId);
+          }
+        });
+        
+        this.activeJobMonitors[jobId] = cleanup;
+        
+      } catch (error) {
+        console.error('Upload failed:', error);
+      } finally {
+        this.showSummarizeModal = false;
       }
     },
     formatDate(dateString) {
@@ -208,17 +314,35 @@ export default {
       return text && text.length > 300;
     },
     openUploadModal() {
-      console.log('Upload modal would open now');
+      this.showSummarizeModal = true;
     }
   }
 };
 </script>
 
 <style scoped>
+.loading, .error {
+  padding: 2rem;
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+.error {
+  color: #ff4d4f;
+}
+
+.channel-detail {
+  padding: 2rem 1.5rem;
+}
+
+.channel-header {
+  margin-bottom: 2rem;
+}
 
 .channel-top {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
 }
 
 .create-btn.summarize {
@@ -230,14 +354,44 @@ export default {
   font-size: 1rem;
   cursor: pointer;
 }
+
 .create-btn.summarize:hover {
   background-color: #e64647;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #2686BB;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.back-btn:hover {
+  text-decoration: underline;
+}
+
+.channel-meta h1 {
+  color: #182825;
+  margin: 0 0 0.25rem 0;
+  font-size: 1.8rem;
 }
 
 .channel-title-row {
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.meta-row {
+  display: flex;
+  gap: 1rem;
+  color: #666;
+  font-size: 0.9rem;
 }
 
 .action-btn {
@@ -251,6 +405,155 @@ export default {
 
 .action-btn:hover {
   color: #2686BB;
+}
+
+.summaries-container {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.summaries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.summary-card.processing {
+  opacity: 0.8;
+  background-color: #f8f9fa;
+}
+
+.summary-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-title {
+  margin: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.summary-date {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.summary-content {
+  padding: 1.5rem;
+}
+
+.processing-state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #2686BB;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.text-content {
+  line-height: 1.6;
+  color: #333;
+}
+
+.text-content.collapsed {
+  max-height: 150px;
+  overflow: hidden;
+  position: relative;
+}
+
+.text-content.collapsed::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #2686BB;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.toggle-btn:hover {
+  text-decoration: underline;
+}
+
+.no-summary {
+  color: #777;
+  font-style: italic;
+}
+
+.no-summaries {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.empty-icon {
+  width: 120px;
+  opacity: 0.7;
+  margin-bottom: 1rem;
+}
+
+.upload-btn {
+  background-color: #2686BB;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.upload-btn:hover {
+  background-color: #1d6e99;
 }
 
 .delete-modal {
@@ -300,176 +603,6 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   min-width: 80px;
-}
-
-/* Update existing styles */
-.summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.summary-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-/* Keep all your existing styles below */
-.loading, .error {
-  padding: 2rem;
-  text-align: center;
-  font-size: 1.2rem;
-}
-
-.error {
-  color: #ff4d4f;
-}
-
-.channel-detail {
-  padding: 2rem 1.5rem;
-}
-
-.channel-header {
-  margin-bottom: 2rem;
-}
-
-.back-btn {
-  background: none;
-  border: none;
-  color: #2686BB;
-  cursor: pointer;
-  padding: 0.5rem 0;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-}
-
-.back-btn:hover {
-  text-decoration: underline;
-}
-
-.channel-meta h1 {
-  color: #182825;
-  margin: 0 0 0.25rem 0;
-  font-size: 1.8rem;
-}
-
-.meta-row {
-  display: flex;
-  gap: 1rem;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.summaries-container {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1.5rem;
-}
-
-.summaries-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.summary-card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  overflow: hidden;
-}
-
-.summary-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #eee;
-}
-
-.summary-title {
-  margin: 0;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.summary-date {
-  color: #666;
-  font-size: 0.85rem;
-}
-
-.summary-content {
-  padding: 1.5rem;
-}
-
-.text-content {
-  line-height: 1.6;
-  color: #333;
-}
-
-.text-content.collapsed {
-  max-height: 150px;
-  overflow: hidden;
-  position: relative;
-}
-
-.text-content.collapsed::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 50px;
-  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
-}
-
-.toggle-btn {
-  background: none;
-  border: none;
-  color: #2686BB;
-  cursor: pointer;
-  padding: 0.5rem 0;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-}
-
-.toggle-btn:hover {
-  text-decoration: underline;
-}
-
-.no-summaries {
-  text-align: center;
-  padding: 3rem 0;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.empty-icon {
-  width: 120px;
-  opacity: 0.7;
-  margin-bottom: 1rem;
-}
-
-.upload-btn {
-  background-color: #2686BB;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-top: 1rem;
-}
-
-.upload-btn:hover {
-  background-color: #1d6e99;
 }
 
 @media (max-width: 768px) {
