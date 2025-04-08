@@ -34,3 +34,13 @@ def read_summaries(skip: int = 0, limit: int = 100, db: Session = Depends(get_db
 @router.get("/channel/{channel_id}", response_model=list[SummaryResponse])
 def read_summaries_by_channel(channel_id: int, db: Session = Depends(get_db)):
     return db.query(Summary).filter(Summary.channel_id == channel_id).all()
+
+@router.delete("/{summary_id}")
+def delete_summary(summary_id: int, db: Session = Depends(get_db)):
+    summary = db.query(Summary).filter(Summary.id == summary_id).first()
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+    
+    db.delete(summary)
+    db.commit()
+    return {"message": "Summary deleted successfully"}

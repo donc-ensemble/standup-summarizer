@@ -10,7 +10,7 @@
       
       <div class="project-actions">
         <button class="create-btn" @click="showCreateChannelModal = true">Create Channel</button>
-        <button class="create-btn" @click="showSummarizeModal = true">Summarize Recording</button>
+        <button class="create-btn summarize" @click="showSummarizeModal = true">Summarize</button>
       </div>
     </div>
     <div class="channels-list">
@@ -187,8 +187,16 @@ export default {
   cursor: pointer;
 }
 
+.create-btn.summarize {
+  background-color: #ff4d4e;
+}
+
 .create-btn:hover {
   background-color: #1d6e99;
+}
+
+.create-btn.summarize:hover {
+  background-color: #e64647;
 }
 
 .no-channels {

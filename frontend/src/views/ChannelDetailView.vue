@@ -4,9 +4,19 @@
     <div v-else-if="error" class="error">{{ error }}</div>
     <template v-else>
       <div class="channel-header">
-        <button class="back-btn" @click="goBack">← Back to Project</button>
+        <div class="channel-top">
+          <button class="back-btn" @click="goBack">← Back to Project</button>
+          <div class="channel-actions">
+            <button class="create-btn summarize" @click="showSummarizeModal = true">Summarize</button>
+          </div>
+        </div>
         <div class="channel-meta">
-          <h1>{{ channel.label }}</h1>
+          <div class="channel-title-row">
+            <h1>{{ channel.label }}</h1>
+            <button class="action-btn" @click.stop="showChannelDeleteModal = true">
+              <font-awesome-icon icon="ellipsis-vertical" />
+            </button>
+          </div>
           <div class="meta-row">
             <span class="channel-id">ID: {{ channel.channel_id }}</span>
             <span class="channel-created">Created: {{ formatDate(channel.created_at) }}</span>
@@ -18,9 +28,14 @@
           <div v-for="summary in channel.summaries" :key="summary.id" class="summary-card">
             <div class="summary-header">
               <h3 class="summary-title">
-                {{ getAudioFileName(summary.audio_file_path) }}
+                {{ getAudioFileName(summary.original_filename) }}
               </h3>
-              <span class="summary-date">{{ formatDate(summary.created_at) }}</span>
+              <div class="summary-actions">
+                <span class="summary-date">{{ formatDate(summary.created_at) }}</span>
+                <button class="action-btn" @click.stop="openSummaryDeleteModal(summary.id)">
+                  ...
+                </button>
+              </div>
             </div>
             <div class="summary-content">
               <div class="text-content" :class="{ 'collapsed': summary.collapsed }">
@@ -52,6 +67,17 @@
         </div>
       </div>
     </template>
+
+    <!-- Summary Delete Modal -->
+    <div v-if="showSummaryDeleteModal" class="delete-modal" @click.stop>
+      <div class="delete-modal-content">
+        <p>Are you sure you want to delete this summary?</p>
+        <div class="delete-modal-actions">
+          <button @click="confirmDeleteSummary" class="delete-btn">Delete</button>
+          <button @click="showSummaryDeleteModal = false" class="cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -71,7 +97,11 @@ export default {
         summaries: []
       },
       loading: false,
-      error: null
+      error: null,
+      showChannelDeleteModal: false,
+      showSummaryDeleteModal: false,
+      deletingSummaryId: null,
+      summaryToDelete: null
     };
   },
   async created() {
@@ -83,6 +113,31 @@ export default {
         this.$router.push(`/projects/${this.channel.project_id}`);
       } else {
         this.$router.push('/projects');
+      }
+    },
+    openSummaryDeleteModal(summaryId) {
+      this.summaryToDelete = summaryId;
+      this.showSummaryDeleteModal = true;
+    },
+    async confirmDeleteSummary() {
+      if (this.summaryToDelete) {
+        await this.deleteSummary(this.summaryToDelete);
+        this.showSummaryDeleteModal = false;
+        this.summaryToDelete = null;
+      }
+    },
+    async deleteSummary(summaryId) {
+      this.deletingSummaryId = summaryId;
+      try {
+        await api.deleteSummary(summaryId);
+        this.channel.summaries = this.channel.summaries.filter(
+          summary => summary.id !== summaryId
+        );
+      } catch (error) {
+        console.error('Error deleting summary:', error);
+        alert('Failed to delete summary');
+      } finally {
+        this.deletingSummaryId = null;
       }
     },
     async fetchChannel() {
@@ -136,6 +191,107 @@ export default {
 </script>
 
 <style scoped>
+
+.channel-top {
+  display: flex;
+  justify-content: space-between;
+}
+
+.create-btn.summarize {
+  background-color: #ff4d4e;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.create-btn.summarize:hover {
+  background-color: #e64647;
+}
+
+.channel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  color: #777;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+}
+
+.action-btn:hover {
+  color: #2686BB;
+}
+
+.delete-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.delete-modal-content {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+}
+
+.delete-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.delete-btn {
+  background-color: #ff4d4d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.cancel-btn {
+  background-color: #e0e0e0;
+  color: #333;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 80px;
+}
+
+/* Update existing styles */
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Keep all your existing styles below */
 .loading, .error {
   padding: 2rem;
   text-align: center;
@@ -147,8 +303,6 @@ export default {
 }
 
 .channel-detail {
-  /* max-width: 900px; */
-  /* margin: 0 auto; */
   padding: 2rem 1.5rem;
 }
 
@@ -207,9 +361,6 @@ export default {
 .summary-header {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .summary-title {
@@ -218,10 +369,6 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.audio-icon {
-  font-size: 1.2rem;
 }
 
 .summary-date {

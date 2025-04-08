@@ -41,6 +41,9 @@ export default {
   createSummary(summaryData) {
     return api.post('/summaries', summaryData);
   },
+  deleteSummary(summaryId) {
+    return api.delete(`/summaries/${summaryId}`);
+  },
 
   // Uploads and SSE
   uploadAudio(formData, channelId) {
