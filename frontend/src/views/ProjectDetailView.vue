@@ -46,7 +46,8 @@ import ChannelCard from '@/components/ChannelCard.vue';
 import CreateChannelModal from '@/components/CreateChannelModal.vue';
 import SummarizeModal from '@/components/SummarizeModal.vue';
 import api from '@/services/api';
-import { useJobToast } from '@/composables/useToast'
+import { useJobToast } from '@/composables/useToast';
+import { eventBus } from '@/eventBus';
 
 export default {
   name: 'ProjectDetailView',
@@ -55,9 +56,9 @@ export default {
     CreateChannelModal,
     SummarizeModal
   },
-  setup(){
-    const { monitorJob } = useJobToast()
-    return { monitorJob }
+  setup() {
+    const { monitorJob } = useJobToast();
+    return { monitorJob };
   },
   data() {
     return {
@@ -70,63 +71,110 @@ export default {
         created_at: '',
         channels: []
       },
+      processingJobs: []
     };
   },
   async created() {
     await this.fetchProject();
+    // eventBus.$on('summary-completed', this.handleSummaryCompleted);
+  },
+  beforeDestroy() {
+    // eventBus.$off('summary-completed', this.handleSummaryCompleted);
   },
   methods: {
     goBack() {
-      this.$router.push(`/projects`);
+      this.$router.push('/projects');
     },
     async fetchProject() {
       try {
-        const response = await api.getProject(this.$route.params.id)
+        const response = await api.getProject(this.$route.params.id);
         
         this.project = {
           ...response.data,
-          channels: [...response.data.channels].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        }
+          channels: [...response.data.channels]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .map(channel => ({
+              ...channel,
+              summaries: channel.summaries?.map(summary => ({
+                ...summary,
+                status: summary.status === 'processing' ? 'completed' : summary.status
+              })) || []
+            }))
+        };
+
+        // Clean up processing jobs for completed summaries
+        this.processingJobs = this.processingJobs.filter(job => {
+          const channel = this.project.channels.find(c => c.id === job.channelId);
+          return !channel?.summaries?.some(s => 
+            s.original_filename?.includes(job.filename)
+          );
+        });
       } catch (error) {
         console.error('Error fetching project:', error);
-        
       }
     },
     async handleFileUpload(data) {
       try {
-        console.log('Received data:', data);
-        
-        if (!data || !data.channelId || !data.formData) {
-          console.error('Invalid data received:', data);
+        if (!data?.channelId || !data?.formData) {
+          console.error('Invalid upload data:', data);
           return;
         }
-        
-        console.log('Uploading with channel ID:', data.channelId);
+
         const response = await api.uploadAudio(data.formData, data.channelId);
-        
-        const res = this.monitorJob(response.data.job_id)
+        const filename = data.formData.get('audio_file').name;
+        const jobId = response.data.job_id;
+
+        this.processingJobs.push({
+          id: jobId,
+          filename,
+          channelId: data.channelId
+        });
+
+        const cleanup = this.monitorJob(jobId, (status, eventData) => {
+          if (status === 'completed') {
+            this.processingJobs = this.processingJobs.filter(job => job.id !== jobId);
+            // eventBus.$emit('summary-completed', {
+            //   channelId: data.channelId,
+            //   summaryId: eventData.summary_id
+            // });
+            this.fetchProject();
+          } else if (status === 'failed') {
+            this.processingJobs = this.processingJobs.filter(job => job.id !== jobId);
+          }
+        });
+
+        this.$once('hook:beforeDestroy', cleanup);
       } catch (error) {
         console.error('Upload failed:', error);
       }
     },
+    handleSummaryCompleted({ channelId }) {
+      // eventBus.$emit('refresh-channel', channelId);
+    },
     async deleteChannel(channelId) {
-      await api.deleteChannel(channelId)
-      this.project.channels = this.project.channels.filter(channel => channel.id !== channelId);
+      try {
+        await api.deleteChannel(channelId);
+        this.project.channels = this.project.channels.filter(
+          channel => channel.id !== channelId
+        );
+      } catch (error) {
+        console.error('Error deleting channel:', error);
+      }
     },
     formatDate(dateString) {
+      if (!dateString) return 'Unknown date';
       const date = new Date(dateString);
       return date.toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'short', 
         day: 'numeric' 
       });
-    },
+    }
   }
 };
 </script>
 
 <style scoped>
-
 .back-btn {
   background: none;
   border: none;
@@ -141,16 +189,15 @@ export default {
   text-decoration: underline;
 }
 
-
 .project-detail {
-  /* max-width: 1200px; */
-  /* margin: 0 auto; */
   padding: 2rem;
 }
+
 .project-top {
   display: flex;
   justify-content: space-between;
 }
+
 .project-header {
   margin-bottom: 2rem;
 }
