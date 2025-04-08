@@ -1,7 +1,7 @@
 import asyncio
 import json
 import subprocess
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Form, Request, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, StreamingResponse
 import os
 import uuid
@@ -63,6 +63,7 @@ async def upload_audio(
     background_tasks: BackgroundTasks,
     channel_id: int,
     audio_file: UploadFile = File(...),
+    send_to_slack: str = Form("true"),
 ):
     """
     Endpoint to upload an audio file and process it using the transcribe_summarize function.
@@ -134,6 +135,7 @@ async def upload_audio(
             job_id=job_id,
             channel_id=channel_id,
             original_filename=original_filename,
+            slack_notification_sent=False, 
             status="pending",
         )
         db.add(db_summary)
@@ -148,6 +150,7 @@ async def upload_audio(
         channel_id=channel_id,
         original_filename=original_filename,
         job_id=job_id,
+        send_to_slack_bool=send_to_slack.lower() == "true"
     )
 
     return JSONResponse(

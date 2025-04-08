@@ -53,6 +53,31 @@
           {{ error }}
         </div>
 
+        <div class="form-group">
+          <label>Send to Slack</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                v-model="sendToSlack" 
+                :value="true" 
+                :disabled="isLoading"
+              >
+              <span>Yes</span>
+            </label>
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                v-model="sendToSlack" 
+                :value="false" 
+                :disabled="isLoading"
+              >
+              <span>No</span>
+            </label>
+          </div>
+        </div>
+
+
         <div class="form-actions">
           <button type="button" class="btn cancel-btn" @click="cancel">
             Cancel
@@ -95,7 +120,8 @@ export default {
       audioFile: null,
       isLoading: false,
       error: null,
-      hasSubmitted: false
+      hasSubmitted: false,
+      sendToSlack: true,
     };
   },
   computed: {
@@ -111,13 +137,10 @@ export default {
       const file = event.target.files[0];
       if (!file) return;
 
-      const validTypes = [
-        'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/aac', 'audio/x-m4a',
-        'video/mp4', 'video/x-m4v'
-      ];
+      const validTypes = ['audio/wav', 'video/mp4'];
       
       if (!validTypes.some(type => file.type.includes(type))) {
-        this.error = 'Unsupported file type. Please use MP3, WAV, MP4, or M4A.';
+        this.error = 'Unsupported file type. Please use WAV, MP4';
         this.resetForm();
         return;
       }
@@ -143,7 +166,8 @@ export default {
       try {
         const formData = new FormData();
         formData.append('audio_file', this.audioFile);
-        
+        formData.append('send_to_slack', this.sendToSlack.toString());
+
         if (!this.hideChannelDropdown) {
           this.$emit('submit', {
             formData: formData,
@@ -186,6 +210,28 @@ export default {
 </script>
 
 <style scoped>
+.radio-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.radio-option span {
+  color: #333;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
