@@ -151,11 +151,17 @@ export default {
       showSummarizeModal: false,
       deletingSummaryId: null,
       summaryToDelete: null,
-      processingJobs: []
+      processingJobs: [],
+      activeJobMonitors: {}
     };
   },
   async created() {
     await this.fetchChannel();
+  },
+  beforeUnmount() {
+    // Clean up any active job monitors
+    Object.values(this.activeJobMonitors).forEach(cleanup => cleanup());
+    this.activeJobMonitors = {};
   },
   methods: {
     goBack() {
@@ -206,41 +212,57 @@ export default {
       this.error = null;
       try {
         const response = await api.getChannel(this.$route.params.id);
+        
         this.channel = {
           ...response.data,
           summaries: [...response.data.summaries]
-            .map(summary => {
-              // Ensure no summaries are stuck in processing state
-              if (summary.status === 'processing' && summary.id) {
-                return {
-                  ...summary,
-                  status: 'completed'
-                };
-              }
-              return summary;
-            })
-            .sort((a, b) => {
-              if (a.status === 'processing' && b.status !== 'processing') return -1;
-              if (b.status === 'processing' && a.status !== 'processing') return 1;
-              return new Date(b.created_at) - new Date(a.created_at);
-            })
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .map(summary => ({
               ...summary,
-              collapsed: this.shouldShowToggle(summary.summary)
+              collapsed: this.shouldShowToggle(summary.summary),
+              status: summary.status || 'completed' // Ensure status exists
             }))
         };
-        // Clean up any processing jobs that might be completed
-        this.processingJobs = this.processingJobs.filter(job => 
-          !this.channel.summaries.some(s => 
+
+        // Filter out completed processing jobs
+        this.processingJobs = this.processingJobs.filter(job => {
+          return !this.channel.summaries.some(s => 
             s.original_filename.includes(job.filename)
-          )
-        );
+          );
+        });
+
+        // Monitor any processing summaries from the server
+        this.channel.summaries.forEach(summary => {
+          if (summary.status === 'processing' && summary.job_id && !this.activeJobMonitors[summary.job_id]) {
+            this.monitorProcessingSummary(summary.job_id);
+          }
+        });
+
       } catch (error) {
         console.error('Error fetching channel:', error);
         this.error = 'Failed to load channel details';
       } finally {
         this.loading = false;
       }
+    },
+    monitorProcessingSummary(jobId) {
+      // Clean up any existing monitor
+      if (this.activeJobMonitors[jobId]) {
+        this.activeJobMonitors[jobId]();
+        delete this.activeJobMonitors[jobId];
+      }
+
+      const cleanup = this.monitorJob(jobId, (status, data) => {
+        if (status === 'completed') {
+          setTimeout(() => {
+            this.fetchChannel();
+          }, 1000);
+        } else if (status === 'failed') {
+          this.fetchChannel();
+        }
+      });
+
+      this.activeJobMonitors[jobId] = cleanup;
     },
     async handleFileUpload(formData) {
       try {
@@ -252,7 +274,6 @@ export default {
         
         const cleanup = this.monitorJob(jobId, (status, data) => {
           if (status === 'completed') {
-            // Add slight delay to ensure backend has processed everything
             setTimeout(() => {
               this.processingJobs = this.processingJobs.filter(job => job.id !== jobId);
               this.fetchChannel();
@@ -262,17 +283,13 @@ export default {
           }
         });
         
-        this.$once('hook:beforeDestroy', cleanup);
+        this.activeJobMonitors[jobId] = cleanup;
         
       } catch (error) {
         console.error('Upload failed:', error);
       } finally {
         this.showSummarizeModal = false;
       }
-    },
-    beforeDestroy() {
-  // Clean up any remaining processing jobs
-      this.processingJobs = [];
     },
     formatDate(dateString) {
       if (!dateString) return 'Unknown date';
