@@ -55,7 +55,7 @@ app.include_router(summaries_router, prefix="/summaries", tags=["summaries"])
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return {"Hello": "Welcome to Summarizer! Feel free to summarize any recordings"}
 
 
 @app.post("/upload-audio/")

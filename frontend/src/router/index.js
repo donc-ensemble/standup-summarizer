@@ -5,6 +5,10 @@ import ChannelDetailView from '@/views/ChannelDetailView.vue';
 
 const routes = [
   {
+    path: '/',
+    redirect: '/projects'
+  },
+  {
     path: '/projects',
     name: 'Projects',
     component: ProjectsView

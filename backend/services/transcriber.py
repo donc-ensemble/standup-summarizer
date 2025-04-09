@@ -7,18 +7,22 @@ class Transcriber:
     """
     Class for transcribing audio to text using Whisper
     """
-
-    def __init__(self):
+    _model = None
+    
+    def __init__(self, model_name="base"):
         """
         Initialize the transcriber with the specified Whisper model.
 
         Args:
             model_name (str): The Whisper model to use - tiny, base, small, medium, or large
         """
-        self.model_name = "base"
-        print(f"Loading Whisper model: {self.model_name}")
-        self.model = whisper.load_model(self.model_name)
-        print("Model loaded successfully")
+        self.model_name = model_name
+        if Transcriber._model is None:
+            print(f"Loading Whisper model: {self.model_name}")
+            Transcriber._model = whisper.load_model(self.model_name)
+            print("Model loaded successfully")
+        
+        self.model = Transcriber._model
 
     def transcribe_file(self, audio_file_path, output_file=None):
         """
