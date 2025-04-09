@@ -19,7 +19,6 @@ def send_to_slack(summary, channel_id=None):
     from slack_sdk.errors import SlackApiError
 
     slack_token = os.getenv("SLACK_BOT_TOKEN")
-    
     if not slack_token:
         print(
             "SLACK_BOT_TOKEN not found in environment variables. Skipping Slack notification."
@@ -35,7 +34,6 @@ def send_to_slack(summary, channel_id=None):
             return False
 
         slack_channel_id = channel.channel_id  # This is the actual Slack channel ID
-
         client = WebClient(token=slack_token)
 
         client.chat_postMessage(

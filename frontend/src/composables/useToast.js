@@ -5,20 +5,16 @@ export function useJobToast() {
   const toast = useToast()
   
   const monitorJob = (jobId, statusCallback = null) => {
-    console.debug(`[useJobToast] Setting up monitoring for job ${jobId}`)
     const eventSource = eventBus.setupSSEConnection(jobId)
     let toastId = null
     let processingToastShown = false
     let processingToastDismissed = false
     
     const createToast = (content, options = {}) => {
-      console.debug(`[useJobToast] Creating new toast for job ${jobId}`, { content, options })
-      // Set default timeout to 5 seconds for all toasts
       const finalOptions = {
         timeout: 5000,
         ...options,
         onClose: () => {
-          console.debug(`[useJobToast] Toast for job ${jobId} was closed`)
           if (options.type === 'info' || !options.type) {
             processingToastDismissed = true;
           }
@@ -31,13 +27,6 @@ export function useJobToast() {
     }
 
     const updateOrCreateToast = (content, options = {}) => {
-      console.debug(`[useJobToast] Attempting to update/create toast for job ${jobId}`, {
-        content,
-        options,
-        toastExists: !!toastId
-      })
-
-      // Set default timeout to 5 seconds
       const finalOptions = {
         timeout: 5000,
         ...options
@@ -49,7 +38,6 @@ export function useJobToast() {
             content, 
             ...finalOptions 
           })
-          console.debug(`[useJobToast] Successfully updated toast ${toastId}`)
           return toastId
         } catch (e) {
           console.debug(`[useJobToast] Failed to update toast ${toastId}, it was dismissed`, e)
@@ -57,10 +45,8 @@ export function useJobToast() {
         }
       }
       
-      // Only create new toast if it's not a processing toast that was previously dismissed
       if (!toastId && !(content.includes('Status: processing') && processingToastDismissed)) { 
         toastId = createToast(content, finalOptions)
-        console.debug(`[useJobToast] Created new toast with ID ${toastId}`)
       }
       
       return toastId
@@ -77,11 +63,9 @@ export function useJobToast() {
 
     eventSource.addEventListener('open', () => {
       console.debug(`[useJobToast] SSE connection opened for job ${jobId}`)
-      // Reset for new connections, but keep processingToastDismissed status
     })
 
     eventSource.onmessage = (event) => {
-      console.debug(`[useJobToast] Received message for job ${jobId}:`, event.data)
       if (!event.data) {
         console.debug('[useJobToast] Empty event data received')
         return
@@ -93,11 +77,10 @@ export function useJobToast() {
       if (data.status === 'processing') {
         if (statusCallback) statusCallback('processing', data);
         
-        // Only show processing toast if it hasn't been dismissed before
         if (!processingToastShown && !processingToastDismissed) {
           updateOrCreateToast(`Status: ${data.status}`, {
             type: 'info',
-            timeout: 5000  // Auto-dismiss after 5 seconds
+            timeout: 5000 
           })
           processingToastShown = true;
         }
@@ -108,7 +91,6 @@ export function useJobToast() {
         let toastMessage = 'Processing completed successfully!';
         let toastType = 'success';
         
-        // Handle Slack notification failure
         if (data.slack_notification_sent === false) {
           toastMessage = data.slack_error 
             ? `${data.slack_error}`
@@ -117,7 +99,6 @@ export function useJobToast() {
           toastType = data.slack_error ? 'warning' : 'success';
         }
 
-        // Always show completion toast, regardless of previous toast status
         if (toastId) {
           toast.dismiss(toastId);
           toastId = null;
@@ -139,7 +120,6 @@ export function useJobToast() {
         const errorMessage = data.error || 'Unknown error';
         const slackError = data.slack_error ? ` (Slack error: ${data.slack_error})` : '';
         
-        // Always show error toast
         if (toastId) {
           toast.dismiss(toastId);
           toastId = null;
@@ -156,9 +136,7 @@ export function useJobToast() {
         delete eventBus.eventSources[jobId];
       } else if (data.status) {
         if (statusCallback) statusCallback(data.status, data);
-        console.debug(`[useJobToast] Job ${jobId} non-standard status update:`, data.status);
         
-        // Only show if it's not a processing toast that was previously dismissed
         if (!processingToastDismissed) {
           updateOrCreateToast(`Status: ${data.status}`, {
             type: 'info',
@@ -189,7 +167,6 @@ export function useJobToast() {
     }
 
     return () => {
-      console.debug(`[useJobToast] Cleaning up monitoring for job ${jobId}`)
       if (eventSource) {
         eventSource.close();
       }
