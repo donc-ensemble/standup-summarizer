@@ -163,7 +163,6 @@ export default {
     await this.fetchChannel();
   },
   beforeUnmount() {
-    // Clean up any active job monitors
     Object.values(this.activeJobMonitors).forEach(cleanup => cleanup());
     this.activeJobMonitors = {};
   },
@@ -224,18 +223,16 @@ export default {
             .map(summary => ({
               ...summary,
               collapsed: this.shouldShowToggle(summary.summary),
-              status: summary.status || 'completed' // Ensure status exists
+              status: summary.status || 'completed' 
             }))
         };
 
-        // Filter out completed processing jobs
         this.processingJobs = this.processingJobs.filter(job => {
           return !this.channel.summaries.some(s => 
             s.original_filename.includes(job.filename)
           );
         });
 
-        // Monitor any processing summaries from the server
         this.channel.summaries.forEach(summary => {
           if (summary.status === 'processing' && summary.job_id && !this.activeJobMonitors[summary.job_id]) {
             this.monitorProcessingSummary(summary.job_id);
@@ -250,7 +247,6 @@ export default {
       }
     },
     monitorProcessingSummary(jobId) {
-      // Clean up any existing monitor
       if (this.activeJobMonitors[jobId]) {
         this.activeJobMonitors[jobId]();
         delete this.activeJobMonitors[jobId];

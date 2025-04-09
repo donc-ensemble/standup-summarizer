@@ -65,8 +65,6 @@ export default {
     },
     async handleDeleteProject(projectId) {
       try {
-        console.log("🚀 ~ handleDeleteProject ~ projectId:", projectId)
-        
         await api.deleteProject(projectId);
         this.projects = this.projects.filter(project => project.id !== projectId);
       } catch (error) {
