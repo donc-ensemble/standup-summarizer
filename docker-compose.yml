@@ -24,6 +24,7 @@ services:
     build: .
     volumes:
       - ./backend:/app/backend
+      - ./backend/tmp:/app/backend/tmp
     ports:
       - "8000:8000"
     environment:
@@ -34,6 +35,7 @@ services:
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       PYTHONUNBUFFERED: 1
       RELOAD: 1
+      TEMP_DIRECTORY: /app/backend/tmp
     depends_on:
       - db
       - redis
@@ -42,6 +44,7 @@ services:
     build: .
     volumes:
       - ./backend:/app/backend
+      - ./backend/tmp:/app/backend/tmp
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/summarizer_db
       REDIS_URL: redis://redis:6379/0
@@ -50,6 +53,7 @@ services:
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       CELERY_TASK_TIME_LIMIT: 1800 
       CELERY_TASK_SOFT_TIME_LIMIT: 1500
+      TEMP_DIRECTORY: /app/backend/tmp
     command: >
       celery -A backend.services.celery_app worker 
       --loglevel=info 

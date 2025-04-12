@@ -111,7 +111,7 @@ async def upload_audio(
     job_id = f"standup_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     # Create temporary directory for processing
-    temp_dir = os.getenv("TEMP_DIRECTORY", "/tmp/audio_processing")
+    temp_dir = os.getenv("TEMP_DIRECTORY", "/app/backend/tmp")
     os.makedirs(temp_dir, exist_ok=True)
 
     # Save original file temporarily
