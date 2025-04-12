@@ -20,8 +20,10 @@ from api.routes.projects import router as projects_router
 from api.routes.channels import router as channels_router
 from api.routes.summaries import router as summaries_router
 
+
 sys.path.append(str(Path(__file__).parent))
 from services.transcribe_summarizer import transcribe_summarize_api
+from services.tasks import sleep_task
 
 
 @asynccontextmanager
@@ -56,6 +58,27 @@ app.include_router(summaries_router, prefix="/summaries", tags=["summaries"])
 @app.get("/")
 def read_root():
     return {"Hello": "Welcome to Summarizer! Feel free to summarize any recordings"}
+  
+  
+# Start of Celery
+@app.get("/trigger-sleep-task/{seconds}")
+async def trigger_sleep_task(seconds: int):
+    """
+    Endpoint to trigger a sleep task with Celery
+    """
+    task = sleep_task.delay(seconds)
+    return {"message": f"Sleep task started for {seconds} seconds", "task_id": task.id}
+
+@app.get("/check-task/{task_id}")
+async def check_task(task_id: str):
+    """
+    Endpoint to check the status of a task
+    """
+    task = sleep_task.AsyncResult(task_id)
+    if task.ready():
+        return {"status": "completed", "result": task.result}
+    return {"status": "in progress"}
+# End of Celery
 
 
 @app.post("/upload-audio/")

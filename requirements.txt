@@ -46,6 +46,9 @@ safetensors==0.5.3
 scipy==1.15.2
 setuptools==78.1.0
 slack_sdk==3.35.0
+celery>=5.2.7
+redis>=4.5.1
+flower>=1.2.0
 sniffio==1.3.1
 sounddevice==0.5.1
 SQLAlchemy==2.0.40

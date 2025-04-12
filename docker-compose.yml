@@ -15,24 +15,71 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     volumes:
       - ./backend:/app/backend
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/summarizer_db
+      REDIS_URL: redis://redis:6379/0
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       WHISPER_MODEL: ${WHISPER_MODEL:-base}
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       PYTHONUNBUFFERED: 1
       RELOAD: 1
     depends_on:
-      db:
-        condition: service_healthy
+      - db
+      - redis
+
+  celery_worker:
+    build: .
+    volumes:
+      - ./backend:/app/backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/summarizer_db
+      REDIS_URL: redis://redis:6379/0
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      CELERY_TASK_TIME_LIMIT: 1800 
+      CELERY_TASK_SOFT_TIME_LIMIT: 1500
+    command: >
+      celery -A backend.services.celery_app worker 
+      --loglevel=info 
+      --concurrency=1 
+      --hostname=worker@%%h
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - redis
+    deploy:
+      replicas: 3
+      resources: 
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  flower:
+    build: .
+    ports:
+      - "5555:5555"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+    command: celery -A backend.services.celery_app flower --port=5555 --broker=redis://redis:6379/0
+    depends_on:
+      - celery_worker
+      - redis
 
   frontend:
     image: node:18-alpine
