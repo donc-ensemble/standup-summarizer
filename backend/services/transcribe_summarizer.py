@@ -1,10 +1,14 @@
 import os
-from db.models.channel import Channel
-from db.session import get_db
-from db.models.summary import Summary
+from pathlib import Path
+import shutil
+import sys
 from .transcriber import Transcriber
 from .summarizer import Summarizer
 
+sys.path.append(str(Path(__file__).resolve().parent.parent)) 
+from db.models.channel import Channel
+from db.session import get_db
+from db.models.summary import Summary
 
 def send_to_slack(summary, channel_id=None):
     """
@@ -87,7 +91,7 @@ def transcribe_summarize_api(
 
         summarizer = Summarizer()
         summary_text = summarizer.summarize(transcription["text"])
-
+        print("transcribing-------")
         # Initialize variables with default values
         slack_success = False
         slack_error = None
@@ -119,13 +123,27 @@ def transcribe_summarize_api(
         raise
     finally:
         db.close()
+        db = next(get_db())
+        try:
+            summary = db.query(Summary).filter(Summary.job_id == job_id).first()
+            if summary and summary.status in ["completed", "failed"]:
+                cleanup_temp_files(audio_file_path)
+        finally:
+            db.close()
+            
+            
+def cleanup_temp_files(audio_file_path: str):
+    """Clean up ALL temporary files for this specific job by removing its entire directory"""
+    try:
+        # Get the job's temporary directory (parent of the audio file)
         temp_dir = os.path.dirname(audio_file_path)
-        base_name = os.path.basename(audio_file_path).split("_")[0]
-        for filename in os.listdir(temp_dir):
-            if filename.startswith(base_name):
-                file_path = os.path.join(temp_dir, filename)
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                except Exception as e:
-                    print(f"Failed to delete temp file {file_path}: {str(e)}")
+        
+        # Verify this is a job-specific directory (contains 'standup_' in path)
+        if 'standup_' in temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+            print(f"♻️ Cleaned up temporary directory: {temp_dir}")
+        else:
+            print(f"⚠️ Skipping cleanup - not a job directory: {temp_dir}")
+            
+    except Exception as e:
+        print(f"⚠️ Failed to delete temp directory {temp_dir}: {str(e)}")

@@ -23,7 +23,7 @@ from api.routes.summaries import router as summaries_router
 
 sys.path.append(str(Path(__file__).parent))
 from services.transcribe_summarizer import transcribe_summarize_api
-from services.tasks import sleep_task
+from services.tasks import sleep_task, transcribe_and_summarize_task
 
 
 @asynccontextmanager
@@ -83,63 +83,48 @@ async def check_task(task_id: str):
 
 @app.post("/upload-audio/")
 async def upload_audio(
-    background_tasks: BackgroundTasks,
     channel_id: int,
     audio_file: UploadFile = File(...),
     send_to_slack: str = Form("true"),
 ):
     """
-    Endpoint to upload an audio file and process it using the transcribe_summarize function.
-    Accepts audio files including MP4 and M4A formats, converting them to WAV as needed.
-
-    Args:
-        background_tasks: FastAPI background tasks handler
-        channel_id: The ID of the channel to associate with this upload
-        audio_file: The uploaded audio file
-
-    Returns:
-        JSONResponse with job_id and status
+    Endpoint to upload an audio file and process it.
+    Creates a unique directory for each job's temporary files.
     """
-    # Accept audio files and video files (for MP4)
+    # Validate file type
     content_type = audio_file.content_type
     if not (content_type.startswith("audio/") or content_type.startswith("video/")):
         raise HTTPException(
             status_code=400, detail="File must be an audio or video file"
         )
 
+    # Create unique job ID and directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     job_id = f"standup_{timestamp}_{uuid.uuid4().hex[:8]}"
-
-    # Create temporary directory for processing
     temp_dir = os.getenv("TEMP_DIRECTORY", "/app/backend/tmp")
-    os.makedirs(temp_dir, exist_ok=True)
+    job_temp_dir = os.path.join(temp_dir, job_id)  # Unique subdirectory per job
+    os.makedirs(job_temp_dir, exist_ok=True)
 
-    # Save original file temporarily
-    file_extension = os.path.splitext(audio_file.filename)[1].lower()
-    if not file_extension:
-        file_extension = ".wav"  # Default to .wav if no extension
-
+    # Save original file
+    file_extension = os.path.splitext(audio_file.filename)[1].lower() or ".wav"
     original_filename = audio_file.filename
-    temp_file_path = os.path.join(temp_dir, f"{job_id}_original{file_extension}")
+    temp_file_path = os.path.join(job_temp_dir, f"original{file_extension}")
 
     with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(audio_file.file, buffer)
 
+    # Convert to WAV if needed
     if file_extension in [".mp4", ".m4a"]:
-        wav_file_path = os.path.join(temp_dir, f"{job_id}_recording.wav")
+        wav_file_path = os.path.join(job_temp_dir, "recording.wav")
         try:
             subprocess.run(
                 [
                     "ffmpeg",
-                    "-i",
-                    temp_file_path,
+                    "-i", temp_file_path,
                     "-vn",
-                    "-acodec",
-                    "pcm_s16le",
-                    "-ar",
-                    "44100",
-                    "-ac",
-                    "2",
+                    "-acodec", "pcm_s16le",
+                    "-ar", "44100",
+                    "-ac", "2",
                     wav_file_path,
                 ],
                 check=True,
@@ -152,6 +137,7 @@ async def upload_audio(
     else:
         audio_file_path = temp_file_path
 
+    # Create database record
     db = next(get_db())
     try:
         db_summary = Summary(
@@ -166,9 +152,9 @@ async def upload_audio(
         db.refresh(db_summary)
     finally:
         db.close()
-
-    background_tasks.add_task(
-        transcribe_summarize_api,
+        
+    # Start Celery task
+    transcribe_and_summarize_task.delay(
         audio_file_path=audio_file_path,
         channel_id=channel_id,
         original_filename=original_filename,
@@ -184,7 +170,6 @@ async def upload_audio(
             "message": "Audio file uploaded successfully. Processing started.",
         },
     )
-
 
 @app.get("/job-events/{job_id}")
 async def job_events(request: Request, job_id: str):
@@ -245,7 +230,14 @@ async def job_events(request: Request, job_id: str):
 def main():
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    reload = os.environ.get("RELOAD", "0") == "1"  
+    
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=reload
+    )
 
 
 if __name__ == "__main__":

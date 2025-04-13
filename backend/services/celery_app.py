@@ -6,12 +6,11 @@ redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
 # Create Celery app
 celery_app = Celery(
-    'tasks',
+    'transcribe_summarizer',
     broker=redis_url,
     backend=redis_url
 )
 
-# Load task modules from all registered Django app configs.
 celery_app.autodiscover_tasks(['backend.services'])
 
 # Optional configurations
